@@ -53,6 +53,43 @@ function submitOrder(name, orders) {
   .catch(err => document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาด: " + err);
 }
 
+// ****** ส่วนใหม่: Logic สำหรับหน้าตั้งค่าสินค้า (index.html) ******
+
+// ใช้ DOMContentLoaded เพื่อให้แน่ใจว่าองค์ประกอบ HTML ถูกโหลดแล้ว
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Logic สำหรับหน้าตั้งค่าสินค้า (index.html)
+    const stockForm = document.getElementById('stockForm');
+    const stockDiv = document.getElementById('stockInputs');
+
+    if (stockForm && stockDiv) {
+        // รายการสินค้าของคุณที่ใช้ใน index.html
+        // ต้องตรงกับโค้ดที่เคยอยู่ใน index.html (ตัวอย่างสินค้าใหม่ของคุณอาจไม่ตรงกับสินค้าเดิมที่ใช้ใน code.gs)
+        const menuList = ["ชาเขียว", "โกโก้", "กาแฟเย็น", "น้ำผึ้งมะนาว", "นมสด"]; 
+        
+        // ******* ฟังก์ชันสร้าง Input Fields (เอามาจาก index.html เดิม) *******
+        menuList.forEach(name => {
+            stockDiv.innerHTML += `
+                <label>${name}: <input type="number" name="${name}" min="0" value="0"> ชิ้น</label>`;
+        });
+        // *******************************************************************
+        
+        // ******* ฟังก์ชันจัดการ Event บันทึก (เอามาจาก index.html เดิม) *******
+        stockForm.addEventListener('submit', e => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const stockData = {};
+            // สร้าง Object { "ชาเขียว": 10, "โกโก้": 5, ... }
+            formData.forEach((v, k) => stockData[k] = v); 
+            saveStock(stockData); // เรียกใช้ฟังก์ชันใน script.js
+        });
+        // *******************************************************************
+    }
+    
+    // 2. Logic สำหรับหน้าสั่งสินค้า (order.html) - โค้ดเดิม
+    // ... (ส่วนนี้ควรถูกแยกไปอยู่ใน block อื่น หรืออยู่ใน order.html)
+    // แต่ถ้าต้องการรวม ให้ตรวจสอบว่า loadStock ทำงานบน order.html ได้
+});
+
 // ****** โค้ดที่ใช้สำหรับ index.html: ใช้ script.js แทน ******
 
 // if (document.getElementById('stockForm')) {
