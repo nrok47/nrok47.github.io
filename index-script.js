@@ -14,17 +14,24 @@ async function updateStockFile(stockData) {
   const statusEl = document.getElementById("status");
   
   try {
-    // **ต้องสร้าง GitHub Personal Access Token ก่อน**
-    // สำหรับทดลอง เราใช้ localStorage แทนการ commit ไป GitHub
+    // บันทึกลง localStorage
+    localStorage.setItem('stockData', JSON.stringify(stockData));
     
-    statusEl.textContent = "✓ บันทึก stock ลงในเครื่องเรียบร้อย!";
+    // แสดงข้อความสำเร็จ
+    statusEl.classList.remove('error', 'loading');
+    statusEl.classList.add('show', 'success');
+    statusEl.textContent = "✓ บันทึกสต็อกสำเร็จแล้ว!";
     
-    // ถ้าต้องการ commit ไป GitHub จริงๆ ต้องใช้ GitHub API
-    // แต่เนื่องจากเป็น static site จึงแนะนำให้ใช้ serverless function แทน
+    // ซ่อนข้อความหลัง 3 วินาที
+    setTimeout(() => {
+      statusEl.classList.remove('show');
+    }, 3000);
     
   } catch (err) {
     console.error("Error updating stock file:", err);
-    statusEl.textContent = "⚠️ บันทึกแล้ว (ยังต้องการเชื่อมต่อ GitHub)";
+    statusEl.classList.remove('success', 'loading');
+    statusEl.classList.add('show', 'error');
+    statusEl.textContent = "❌ เกิดข้อผิดพลาดในการบันทึก";
   }
 }
 
@@ -50,7 +57,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // สร้าง Input Fields
         stockDiv.innerHTML = menuList.map(name => `
-            <label>${name}: <input type="number" name="${name}" min="0" value="${currentStock[name] || 0}"> ชิ้น</label>
+            <div class="form-group">
+              <label>${name}</label>
+              <input type="number" name="${name}" min="0" value="${currentStock[name] || 0}">
+              <span class="unit">ชิ้น</span>
+            </div>
         `).join('');
         
         // จัดการ Event บันทึก

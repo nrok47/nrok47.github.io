@@ -76,7 +76,10 @@ async function saveOrder(name, orders) {
 
 // ====== ฟังก์ชันลูกค้าสั่งของ ======
 async function submitOrder(name, orders) {
-  document.getElementById("status").textContent = "กำลังสั่งซื้อ...";
+  const statusEl = document.getElementById("status");
+  statusEl.classList.remove('error', 'success');
+  statusEl.classList.add('show', 'loading');
+  statusEl.textContent = "⏳ กำลังประมวลผลคำสั่งซื้อ...";
   
   try {
     const orderResult = await saveOrder(name, orders);
@@ -85,15 +88,30 @@ async function submitOrder(name, orders) {
     const refCode = Math.floor(Math.random() * 900000) + 100000;
     const totalAmount = orderResult.totalAmount;
     
-    document.getElementById("status").textContent = 
-      `✓ สั่งซื้อสำเร็จ! ยอดรวม: ${totalAmount} บาท (รหัสอ้างอิง: ${refCode})`;
+    statusEl.classList.remove('loading', 'error');
+    statusEl.classList.add('success');
+    statusEl.innerHTML = `
+      <div style="line-height: 1.6;">
+        ✓ สั่งซื้อสำเร็จแล้ว!<br>
+        ยอดรวม: ${totalAmount} บาท<br>
+        <strong>รหัสอ้างอิง: ${refCode}</strong>
+      </div>
+    `;
+    
+    // รีเซ็ตฟอร์ม
+    document.getElementById('orderForm').reset();
     
     // รีโหลด Stock ใหม่หลังสั่งซื้อสำเร็จ
-    setTimeout(() => loadStockAndRenderMenu(), 1500);
+    setTimeout(() => {
+      loadStockAndRenderMenu();
+      statusEl.classList.remove('show');
+    }, 2000);
     
   } catch (err) {
     console.error("Error:", err);
-    document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาดในการสั่งซื้อ: " + err.message;
+    statusEl.classList.remove('loading');
+    statusEl.classList.add('error');
+    statusEl.textContent = "❌ เกิดข้อผิดพลาด: " + err.message;
   }
 }
 
@@ -111,10 +129,11 @@ async function loadStockAndRenderMenu() {
     // 1. สร้างเมนู
     menuDiv.innerHTML = '';
     Object.keys(stock).forEach(name => {
-        // *** ราคาถูก Hardcode เป็น 20 บาท ตามโค้ดเดิมของคุณ ***
         menuDiv.innerHTML += `
-            <label>${name} (เหลือ ${stock[name]}): 
-            <input type="number" min="0" max="${stock[name]}" data-name="${name}" value="0"></label>`;
+            <div class="form-group">
+              <label>${name} (เหลือ ${stock[name]} ชิ้น)</label>
+              <input type="number" min="0" max="${stock[name]}" data-name="${name}" value="0">
+            </div>`;
     });
 
     // 2. Event Listener คำนวณยอดรวม

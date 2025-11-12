@@ -1,22 +1,228 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>ตั้งค่าสินค้า (ผู้ขาย)</title>
-  <script src="index-script.js" defer></script>   <style>
-    body { font-family: sans-serif; max-width: 400px; margin: auto; }
-    label { display: block; margin-bottom: 8px; }
-    button { margin-top: 12px; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ตั้งค่าสินค้า - ผู้ขาย</title>
+  <script src="index-script.js" defer></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 100%;
+      padding: 40px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+
+    form {
+      margin-bottom: 25px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .form-group label {
+      flex: 1;
+      font-size: 14px;
+      color: #444;
+      font-weight: 500;
+    }
+
+    .form-group input {
+      width: 80px;
+      padding: 8px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 8px rgba(102, 126, 234, 0.2);
+    }
+
+    .unit {
+      font-size: 12px;
+      color: #999;
+      min-width: 40px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    #status {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      min-height: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      display: none;
+    }
+
+    #status.show {
+      display: block;
+    }
+
+    #status.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border-left: 4px solid #4caf50;
+    }
+
+    #status.error {
+      background: #ffebee;
+      color: #c62828;
+      border-left: 4px solid #f44336;
+    }
+
+    #status.loading {
+      background: #e3f2fd;
+      color: #1565c0;
+      border-left: 4px solid #2196f3;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .footer a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #667eea;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      padding: 8px 16px;
+      border-radius: 6px;
+    }
+
+    .footer a:hover {
+      background: #f5f7ff;
+      color: #764ba2;
+    }
+
+    .footer a::before {
+      content: "→";
+      font-size: 18px;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 25px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+      }
+
+      .form-group {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .form-group input {
+        width: 100%;
+      }
+    }
+  </style>
 </head>
 <body>
-  <h2>ตั้งค่าสินค้าในสต็อก</h2>
-  <form id="stockForm">
-    <div id="stockInputs"></div>
-    <button type="submit">บันทึกสต็อก</button>
-  </form>
-  <p id="status"></p>
+  <div class="container">
+    <div class="header">
+      <h1>🛍️ ตั้งค่าสินค้าในสต็อก</h1>
+      <p>จัดการสินค้าและจำนวนคงคลัง</p>
+      <span class="badge">ผู้ขาย</span>
+    </div>
 
-  <p><a href="order.html">→ ไปหน้าสั่งสินค้า</a></p>
+    <form id="stockForm">
+      <div id="stockInputs"></div>
+      <button type="submit">💾 บันทึกสต็อก</button>
+    </form>
+
+    <div id="status"></div>
+
+    <div class="footer">
+      <a href="order.html">ไปหน้าสั่งสินค้า</a>
+    </div>
+  </div>
 </body>
 </html>
