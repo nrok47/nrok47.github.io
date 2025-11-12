@@ -1,53 +1,22 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>สั่งสินค้า</title>
-  <script src="script.js" defer></script>
-  <style>
-    body { font-family: sans-serif; max-width: 400px; margin: auto; }
-    label { display: block; margin-bottom: 8px; }
-    button { margin-top: 12px; }
-  </style>
+  <meta charset="UTF-8">
+  <title>สั่งสินค้า</title>
+  <script src="order-script.js" defer></script>   <style>
+    body { font-family: sans-serif; max-width: 400px; margin: auto; }
+    label { display: block; margin-bottom: 8px; }
+    button { margin-top: 12px; }
+  </style>
 </head>
 <body>
-  <h2>เมนูสินค้า</h2>
-  <form id="orderForm">
-    <div id="orderMenu"></div>
-    <label>ชื่อผู้สั่ง: <input type="text" id="customerName" required></label>
-    <p id="total">รวมทั้งหมด: 0 บาท</p>
-    <button type="submit">สั่งสินค้า</button>
-  </form>
-  <p id="status"></p>
-
-  <script>
-    loadStock().then(stock => {
-      const menuDiv = document.getElementById('orderMenu');
-      Object.keys(stock).forEach(name => {
-        menuDiv.innerHTML += `
-          <label>${name} (เหลือ ${stock[name]}): 
-          <input type="number" min="0" max="${stock[name]}" data-name="${name}" value="0"></label>`;
-      });
-
-      const totalP = document.getElementById('total');
-      menuDiv.addEventListener('input', () => {
-        let total = 0;
-        menuDiv.querySelectorAll('input').forEach(inp => {
-          total += parseInt(inp.value || 0) * 20; // ราคา/ชิ้น
-        });
-        totalP.textContent = `รวมทั้งหมด: ${total} บาท`;
-      });
-
-      document.getElementById('orderForm').addEventListener('submit', e => {
-        e.preventDefault();
-        const name = document.getElementById('customerName').value;
-        const orders = {};
-        menuDiv.querySelectorAll('input').forEach(inp => {
-          if (inp.value > 0) orders[inp.dataset.name] = inp.value;
-        });
-        submitOrder(name, orders);
-      });
-    });
-  </script>
+  <h2>เมนูสินค้า</h2>
+  <form id="orderForm">
+    <div id="orderMenu"></div>
+    <label>ชื่อผู้สั่ง: <input type="text" id="customerName" required></label>
+    <p id="total">รวมทั้งหมด: 0 บาท</p>
+    <button type="submit">สั่งสินค้า</button>
+  </form>
+  <p id="status"></p>
 </body>
 </html>
