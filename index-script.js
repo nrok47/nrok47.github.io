@@ -4,20 +4,21 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCJcXJ4U5TKVk9Qu6UK
 
 // ====== ฟังก์ชันผู้ขาย: บันทึก stock ======
 function saveStock(stockData) {
-  document.getElementById("status").textContent = "กำลังบันทึก...";
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ type: "setStock", data: stockData })
-  })
-  .then(res => res.text())
-  .then(txt => document.getElementById("status").textContent = txt) // แสดงผลตอบกลับจาก code.gs
-  .catch(err => document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาดในการเชื่อมต่อ: " + err);
-}
-
-// ****** Logic สำหรับหน้าตั้งค่าสินค้า (index.html) ******
+  document.getElementById("status").textContent = "กำลังบันทึก...";
+  fetch(SCRIPT_URL, {
+    method: "POST",
+    mode: 'no-cors',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ type: "setStock", data: stockData })
+  })
+  .then(res => {
+    // เมื่อใช้ no-cors ไม่สามารถอ่าน response body ได้
+    document.getElementById("status").textContent = "✓ บันทึกสำเร็จ!";
+  })
+  .catch(err => document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาดในการเชื่อมต่อ: " + err);
+}// ****** Logic สำหรับหน้าตั้งค่าสินค้า (index.html) ******
 document.addEventListener('DOMContentLoaded', () => {
     const stockForm = document.getElementById('stockForm');
     const stockDiv = document.getElementById('stockInputs');

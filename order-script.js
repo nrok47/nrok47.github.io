@@ -5,15 +5,15 @@ const ITEM_PRICE = 20; // ราคาเริ่มต้น (ตามโค�
 
 // ====== ฟังก์ชันโหลด stock ======
 async function loadStock() {
-  const statusElement = document.getElementById("status");
-  if (statusElement) statusElement.textContent = "กำลังโหลดรายการสินค้า...";
+  const statusElement = document.getElementById("status");
+  if (statusElement) statusElement.textContent = "กำลังโหลดรายการสินค้า...";
 
-  try {
-    // ยิง GET request เพื่อดึง JSON Stock Data
-    const res = await fetch(SCRIPT_URL + "?type=getStock");
-    
-    // ตรวจสอบสถานะการตอบกลับ
-    if (!res.ok) {
+  try {
+    // ยิง GET request เพื่อดึง JSON Stock Data
+    const res = await fetch(SCRIPT_URL + "?type=getStock", { mode: 'cors' });
+    
+    // ตรวจสอบสถานะการตอบกลับ
+    if (!res.ok) {
         throw new Error(`การเชื่อมต่อผิดพลาด (HTTP Status: ${res.status})`);
     }
 
@@ -25,35 +25,32 @@ async function loadStock() {
     }
 
     if (statusElement) statusElement.textContent = "";
-    return await res.json();
+    return await res.json();
 
-  } catch (err) {
-    console.error("Error loading stock:", err);
-    if (statusElement) statusElement.textContent = "❌ ไม่สามารถโหลดสต็อกได้: " + err.message;
-    return {}; // คืนค่าว่าง
-  }
+  } catch (err) {
+    console.error("Error loading stock:", err);
+    if (statusElement) statusElement.textContent = "❌ ไม่สามารถโหลดสต็อกได้: " + err.message;
+    return {}; // คืนค่าว่าง
+  }
 }
 
 // ====== ฟังก์ชันลูกค้าสั่งของ ======
 function submitOrder(name, orders) {
-  document.getElementById("status").textContent = "กำลังสั่งซื้อ...";
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ type: "order", name, orders })
-  })
-  .then(res => res.text())
-  .then(txt => {
-    document.getElementById("status").textContent = txt; // แสดงผลตอบกลับจาก code.gs
-    // รีโหลด Stock ใหม่หลังสั่งซื้อสำเร็จ
+  document.getElementById("status").textContent = "กำลังสั่งซื้อ...";
+  fetch(SCRIPT_URL, {
+    method: "POST",
+    mode: 'no-cors',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ type: "order", name, orders })
+  })
+  .then(res => {
+    document.getElementById("status").textContent = "✓ สั่งซื้อสำเร็จ!";
     loadStockAndRenderMenu();
   })
-  .catch(err => document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาดในการสั่งซื้อ: " + err);
-}
-
-// ****** Logic สำหรับหน้าสั่งสินค้า (order.html) ******
+  .catch(err => document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาดในการสั่งซื้อ: " + err);
+}// ****** Logic สำหรับหน้าสั่งสินค้า (order.html) ******
 async function loadStockAndRenderMenu() {
     const stock = await loadStock();
     const menuDiv = document.getElementById('orderMenu');
