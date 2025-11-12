@@ -31,7 +31,7 @@ function doGet(e) {
     return HtmlService.createHtmlOutput('Access this page from your GitHub.io URL');
   }
 }
-
+/*
 function getStockDataAsJson() {
   const stockSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(STOCK_SHEET_NAME);
   let stockData = [];
@@ -48,6 +48,34 @@ function getStockDataAsJson() {
   // แปลงข้อมูลเป็น JSON และตั้งค่า Header เพื่อให้เบราว์เซอร์อ่านได้
   return ContentService.createTextOutput(JSON.stringify(stockData))
       .setMimeType(ContentService.MimeType.JSON);
+}
+*/
+function getStockDataAsJson() {
+  const stockSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(STOCK_SHEET_NAME);
+  let stockData = [];
+  
+  for (let i = 0; i < MENU_ITEMS.length; i++) {
+    const stock = stockSheet.getRange(i + 2, 3).getValue() || 0; 
+    stockData.push({
+      name: MENU_ITEMS[i],
+      price: PRICES[i],
+      stock: stock
+    });
+  }
+  
+  // ****** จุดที่ต้องแก้ไข/เพิ่ม: เพิ่ม Header CORS ******
+  const jsonOutput = ContentService.createTextOutput(JSON.stringify(stockData))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  // อนุญาตให้ทุกเว็บไซต์ (Origin: *) เข้าถึงข้อมูลนี้ได้
+  jsonOutput.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL); // (ไม่เกี่ยวกับ CORS โดยตรง แต่ช่วยเรื่อง iframe)
+  
+  // ส่วนสำคัญที่สุดสำหรับ CORS
+  const response = jsonOutput.setContent(jsonOutput.getContent()).setMimeType(ContentService.MimeType.JSON);
+  response.setHeader('Access-Control-Allow-Origin', '*'); // อนุญาตให้ทุก Origin เข้าถึงได้
+
+  return response;
+  // ******************************************************
 }
 
 
