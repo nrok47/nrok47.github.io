@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>พอใจขาย - สั่งซื้อออนไลน์</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: sans-serif; padding: 15px; max-width: 400px; margin: auto; }
+        .item-row { display: flex; align-items: center; margin-bottom: 10px; padding: 5px; border-bottom: 1px solid #eee; }
+        .item-info { flex-grow: 1; }
+        .item-qty { width: 80px; text-align: right; }
+        input[type="number"] { width: 50px; text-align: right; border: 1px solid #ccc; padding: 5px; }
+        #totalDisplay { font-size: 1.2em; font-weight: bold; margin-top: 15px; padding: 10px; background-color: #e6f7ff; border-radius: 5px; }
+        button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 15px; width: 100%; }
+        #result { margin-top: 20px; padding: 10px; background-color: #f0f0f0; display: none; }
+        #menuContainer { min-height: 150px; }
+    </style>
+</head>
+<body>
+
+    <h1>พอใจขาย</h1>
+    <h3 id="loadingStatus">กำลังดึงรายการสินค้า...</h3>
+
+    <form id="orderForm" style="display: none;">
+        <h3>เมนูพอใจขาย (Stock คงเหลือ)</h3>
+        
+        <div id="menuContainer">
+            </div>
+
+        <hr>
+        <div id="totalDisplay">
+            ยอดรวมที่ต้องชำระ: <span id="totalAmount">0.00</span> บาท
+        </div>
+
+        <label for="customerName" style="display: block; margin-top: 15px;">ชื่อผู้สั่งยืนยัน:</label>
+        <input type="text" id="customerName" name="customerName" required style="width: 100%; padding: 8px;">
+        
+        <button type="submit">ยืนยันการสั่งซื้อ</button>
+    </form>
+
+    <div id="result"></div>
+
+    <script>
+        // **!!! เปลี่ยนตรงนี้เป็น Web App URL ของคุณ !!!**
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxIodPDpCr9FUy4OPr_ky_nZqV86AzxUMCTNR5UH1AC5SBgPGOhU8pZ7my2Rd_GThk/exec'; 
+        
+        let stockData = [];
+        let prices = [];
+
+        // 1. ฟังก์ชันดึงข้อมูล Stock จาก Apps Script
+        async function fetchStockData() {
+            document.getElementById('loadingStatus').textContent = 'กำลังดึงรายการสินค้า...';
+            
+            // ยิง GET request ไปหา Web App URL พร้อมพารามิเตอร์เพื่อขอ JSON data
+            try {
+                const response = await fetch(`${WEB_APP_URL}?page=stock_data`);
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                stockData = await response.json();
+                prices = stockData.map(item => item.price);
+                
+                renderMenu();
+                document.getElementById('loadingStatus').style.display = 'none';
+                document.getElementById('orderForm').style.display = 'block';
+            } catch (error) {
+                console.error('Error fetching stock:', error);
+                document.getElementById('loadingStatus').textContent = 'ไม่สามารถดึงข้อมูลสินค้าได้: ' + error.message;
+            }
+        }
+
+        // 2. ฟังก์ชันสร้างหน้าเมนู
+        function renderMenu() {
+            const container = document.getElementById('menuContainer');
+            container.innerHTML = '';
+            
+            stockData.forEach((item, i) => {
+                const row = document.createElement('div');
+                row.className = 'item-row';
+                row.innerHTML = `
+                    <div class="item-info">
+                        ${item.name}
+                        <br>
+                        <small style="color: green;">(คงเหลือ: ${item.stock})</small>
+                    </div>
+                    <div class="item-qty">
+                        <input type="number" id="qty${i}" name="qty${i}" value="0" min="0" 
+                               max="${item.stock}" oninput="calculateTotal()">
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+            calculateTotal();
+        }
+
+        // 3. ฟังก์ชันคำนวณยอดรวม (เหมือนเดิม)
+        function calculateTotal() {
+            let total = 0;
+            for (let i = 0; i < prices.length; i++) {
+                const qtyInput = document.getElementById('qty' + i);
+                const qty = parseInt(qtyInput.value) || 0;
+                total += qty * prices[i];
+            }
+            document.getElementById('totalAmount').textContent = total.toFixed(2);
+        }
+
+        // 4. ฟังก์ชันส่งข้อมูลไปยัง Apps Script (Backend) ผ่าน Fetch API (POST)
+        document.getElementById('orderForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const customerName = document.getElementById('customerName').value;
+            const dataToSend = { customerName: customerName };
+
+            let orderedItems = 0;
+            for (let i = 0; i < prices.length; i++) {
+                const qty = parseInt(document.getElementById('qty' + i).value) || 0;
+                dataToSend[`qty${i}`] = qty;
+                if (qty > 0) orderedItems++;
+            }
+            
+            if (orderedItems === 0) {
+                alert('กรุณาเลือกรายการสั่งซื้ออย่างน้อย 1 รายการ');
+                return;
+            }
+
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('result').innerHTML = 'กำลังบันทึกข้อมูลและตัด Stock...';
+            
+            try {
+                const response = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8', // ใช้ text/plain สำหรับ Apps Script doPost
+                    },
+                    body: JSON.stringify(dataToSend),
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    document.getElementById('result').innerHTML = result.message; 
+                    document.getElementById('orderForm').reset();
+                    // อัปเดตข้อมูล Stock ใหม่หลังสั่งซื้อ
+                    await fetchStockData(); 
+                } else {
+                    document.getElementById('result').innerHTML = `เกิดข้อผิดพลาด: ${result.message}`;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `การเชื่อมต่อผิดพลาด: ${error.message}`;
+            }
+        });
+
+        // เริ่มต้น: ดึงข้อมูล Stock เมื่อโหลดหน้าเว็บ
+        fetchStockData();
+    </script>
+
+</body>
+</html>
