@@ -1,6 +1,6 @@
 // === ตั้งค่า URL ของ Google Apps Script Web App ===
 // ****** ต้องเป็น URL /exec ที่ถูกต้องและ Deploy แล้ว ******
-const SCRIPT_URL = "https://script.google.com/macros/s/160GHbEAuxzyaIINmSvad-TKLGK9OobSBEZDLN64w3Po/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxU2AYB6wwheqEiAb5h85e_leIoBYsHsQgEQgvccp-dVzpU0BrVYlQViYxIDf3wrYn-/exec"; 
 
 // ====== ฟังก์ชันผู้ขาย: บันทึก stock ======
 function saveStock(stockData) {
