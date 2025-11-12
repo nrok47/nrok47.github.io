@@ -1,0 +1,128 @@
+name: Sync Data to JSON Files
+
+on:
+  # ทำงานทุก ๆ 5 นาที
+  schedule:
+    - cron: '*/5 * * * *'
+  
+  # หรือเมื่อมีการ push ไปยัง main branch
+  push:
+    branches:
+      - main
+    paths:
+      - 'index-script.js'
+      - 'order-script.js'
+  
+  # ให้คุณสามารถรัน manual ได้
+  workflow_dispatch:
+
+jobs:
+  sync-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Clone repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      # 2. ตั้งค่า Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      # 3. สร้าง script เพื่ออัปเดต JSON files
+      - name: Update JSON files
+        run: |
+          # สร้าง script Node.js
+          cat > update-data.js << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          
+          // อ่านไฟล์ stock-data.json ปัจจุบัน
+          function readJSONFile(filename) {
+            try {
+              if (fs.existsSync(filename)) {
+                const data = fs.readFileSync(filename, 'utf8');
+                return JSON.parse(data);
+              }
+            } catch (err) {
+              console.error(`Error reading ${filename}:`, err);
+            }
+            return null;
+          }
+          
+          // เขียนไฟล์ JSON
+          function writeJSONFile(filename, data) {
+            try {
+              fs.writeFileSync(filename, JSON.stringify(data, null, 2), 'utf8');
+              console.log(`✓ Updated ${filename}`);
+              return true;
+            } catch (err) {
+              console.error(`Error writing ${filename}:`, err);
+              return false;
+            }
+          }
+          
+          // ตรวจสอบว่า stock-data.json ทำงานได้ดี
+          const stockPath = './stock-data.json';
+          const ordersPath = './orders-log.json';
+          
+          const currentStock = readJSONFile(stockPath);
+          const currentOrders = readJSONFile(ordersPath) || [];
+          
+          // ตรวจสอบว่าไฟล์มีข้อมูลถูกต้อง
+          if (currentStock && typeof currentStock === 'object') {
+            console.log('✓ stock-data.json is valid');
+            
+            // ตรวจสอบข้อมูลสินค้า
+            Object.keys(currentStock).forEach(item => {
+              const qty = currentStock[item];
+              if (qty < 0) {
+                console.warn(`⚠️ Warning: ${item} has negative quantity (${qty})`);
+                currentStock[item] = 0; // แก้เป็น 0
+              }
+            });
+            
+            writeJSONFile(stockPath, currentStock);
+          }
+          
+          if (Array.isArray(currentOrders)) {
+            console.log('✓ orders-log.json is valid');
+            writeJSONFile(ordersPath, currentOrders);
+          } else {
+            console.log('✓ Creating new orders-log.json');
+            writeJSONFile(ordersPath, []);
+          }
+          
+          console.log('Data sync completed!');
+          EOF
+          
+          node update-data.js
+      
+      # 4. ตรวจสอบว่ามีการเปลี่ยนแปลงหรือไม่
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+      
+      # 5. Commit และ Push การเปลี่ยนแปลง
+      - name: Commit and push changes
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          git config --global user.name "GitHub Action Bot"
+          git config --global user.email "action@github.com"
+          git add stock-data.json orders-log.json
+          git commit -m "🤖 Auto-update JSON data files"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # 6. หากไม่มีการเปลี่ยนแปลง
+      - name: No changes detected
+        if: steps.check-changes.outputs.has_changes == 'false'
+        run: echo "✓ No changes to commit"

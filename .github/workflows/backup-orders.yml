@@ -1,0 +1,91 @@
+name: Process Orders Backup
+
+on:
+  # ทำงานทุกวันเที่ยง 12:00 UTC
+  schedule:
+    - cron: '0 12 * * *'
+  
+  # รัน manual
+  workflow_dispatch:
+
+jobs:
+  backup-orders:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Backup and analyze orders
+        run: |
+          cat > backup-orders.js << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          
+          // อ่าน orders log
+          function readOrders() {
+            try {
+              const data = fs.readFileSync('./orders-log.json', 'utf8');
+              return JSON.parse(data);
+            } catch (err) {
+              console.error('Error reading orders:', err);
+              return [];
+            }
+          }
+          
+          const orders = readOrders();
+          
+          // สร้างสรุป orders รายวัน
+          const today = new Date().toISOString().split('T')[0];
+          const backupDir = './backups';
+          
+          if (!fs.existsSync(backupDir)) {
+            fs.mkdirSync(backupDir, { recursive: true });
+          }
+          
+          // บันทึก backup
+          const backupFile = path.join(backupDir, `orders-backup-${today}.json`);
+          fs.writeFileSync(backupFile, JSON.stringify(orders, null, 2));
+          
+          // สรุปข้อมูล
+          let totalRevenue = 0;
+          let totalOrders = orders.length;
+          const itemsSold = {};
+          
+          orders.forEach(order => {
+            totalRevenue += order.totalAmount || 0;
+            Object.keys(order.orders || {}).forEach(item => {
+              itemsSold[item] = (itemsSold[item] || 0) + order.orders[item];
+            });
+          });
+          
+          console.log(`\n📊 Orders Report for ${today}`);
+          console.log(`Total Orders: ${totalOrders}`);
+          console.log(`Total Revenue: ${totalRevenue} บาท`);
+          console.log(`\nItems Sold:`);
+          Object.entries(itemsSold).forEach(([item, qty]) => {
+            console.log(`  - ${item}: ${qty} units`);
+          });
+          console.log(`\n✓ Backup saved to ${backupFile}`);
+          EOF
+          
+          node backup-orders.js
+      
+      - name: Commit backup
+        run: |
+          git config --global user.name "GitHub Action Bot"
+          git config --global user.email "action@github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add backups/
+            git commit -m "📦 Daily orders backup"
+            git push origin main
+          else
+            echo "✓ No new backups to commit"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

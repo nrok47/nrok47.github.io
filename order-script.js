@@ -1,27 +1,18 @@
-// === ตั้งค่า URL ของ Google Apps Script Web App ===
-// ****** ต้องเป็น URL /exec ที่ถูกต้องและ Deploy แล้ว ******
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCJcXJ4U5TKVk9Qu6UKHpMAGeeG90QfdfTspaSWIApvoEaHVpVCp3KS9QcLUREg_P1/exec"; 
-const ITEM_PRICE = 20; // ราคาเริ่มต้น (ตามโค้ดเดิม) หรือคุณอาจจะต้องตั้งราคาที่ถูกต้อง
+// === ตั้งค่าเก็บข้อมูลบน GitHub Pages ===
+const ITEM_PRICE = 20; // ราคาเริ่มต้น
 
-// ====== ฟังก์ชันโหลด stock ======
+// ====== ฟังก์ชันโหลด stock จากไฟล์ JSON ======
 async function loadStock() {
   const statusElement = document.getElementById("status");
   if (statusElement) statusElement.textContent = "กำลังโหลดรายการสินค้า...";
 
   try {
-    // ยิง GET request เพื่อดึง JSON Stock Data
-    const res = await fetch(SCRIPT_URL + "?type=getStock", { mode: 'cors' });
+    // โหลดจากไฟล์ stock-data.json บน GitHub Pages
+    const res = await fetch('stock-data.json');
     
     // ตรวจสอบสถานะการตอบกลับ
     if (!res.ok) {
         throw new Error(`การเชื่อมต่อผิดพลาด (HTTP Status: ${res.status})`);
-    }
-
-    // ตรวจสอบ Content-Type เพื่อหลีกเลี่ยง Error
-    const contentType = res.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-        // ถ้า Web App ส่ง HTML Error กลับมา จะไม่ใช่ JSON
-        throw new Error("Backend ไม่ได้ส่ง JSON กลับมา อาจเป็นเพราะ CORS หรือ Deploy ผิดพลาด");
     }
 
     if (statusElement) statusElement.textContent = "";
@@ -34,23 +25,79 @@ async function loadStock() {
   }
 }
 
+// ====== ฟังก์ชันบันทึกการสั่งซื้อ ======
+async function saveOrder(name, orders) {
+  try {
+    // โหลด orders log ปัจจุบัน
+    let ordersLog = [];
+    try {
+      const res = await fetch('orders-log.json');
+      if (res.ok) {
+        ordersLog = await res.json();
+      }
+    } catch (e) {
+      console.log("No existing orders log, creating new one");
+    }
+    
+    // สร้าง order entry ใหม่
+    const newOrder = {
+      date: new Date().toISOString(),
+      customerName: name,
+      orders: orders,
+      totalAmount: Object.keys(orders).reduce((sum, item) => sum + (orders[item] * ITEM_PRICE), 0)
+    };
+    
+    // เพิ่มเข้า log
+    ordersLog.push(newOrder);
+    
+    // บันทึกลง localStorage
+    localStorage.setItem('ordersLog', JSON.stringify(ordersLog));
+    
+    // คำนวณ stock ใหม่
+    const currentStock = await loadStock();
+    const updatedStock = { ...currentStock };
+    
+    Object.keys(orders).forEach(item => {
+      if (updatedStock[item]) {
+        updatedStock[item] = parseInt(updatedStock[item]) - parseInt(orders[item]);
+      }
+    });
+    
+    // บันทึก stock ใหม่
+    localStorage.setItem('stockData', JSON.stringify(updatedStock));
+    
+    return newOrder;
+    
+  } catch (err) {
+    console.error("Error saving order:", err);
+    throw err;
+  }
+}
+
 // ====== ฟังก์ชันลูกค้าสั่งของ ======
-function submitOrder(name, orders) {
+async function submitOrder(name, orders) {
   document.getElementById("status").textContent = "กำลังสั่งซื้อ...";
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    mode: 'no-cors',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ type: "order", name, orders })
-  })
-  .then(res => {
-    document.getElementById("status").textContent = "✓ สั่งซื้อสำเร็จ!";
-    loadStockAndRenderMenu();
-  })
-  .catch(err => document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาดในการสั่งซื้อ: " + err);
-}// ****** Logic สำหรับหน้าสั่งสินค้า (order.html) ******
+  
+  try {
+    const orderResult = await saveOrder(name, orders);
+    
+    // สร้างเลขอ้างอิง
+    const refCode = Math.floor(Math.random() * 900000) + 100000;
+    const totalAmount = orderResult.totalAmount;
+    
+    document.getElementById("status").textContent = 
+      `✓ สั่งซื้อสำเร็จ! ยอดรวม: ${totalAmount} บาท (รหัสอ้างอิง: ${refCode})`;
+    
+    // รีโหลด Stock ใหม่หลังสั่งซื้อสำเร็จ
+    setTimeout(() => loadStockAndRenderMenu(), 1500);
+    
+  } catch (err) {
+    console.error("Error:", err);
+    document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาดในการสั่งซื้อ: " + err.message;
+  }
+}
+
+// ****** Logic สำหรับหน้าสั่งสินค้า (order.html) ******
 async function loadStockAndRenderMenu() {
     const stock = await loadStock();
     const menuDiv = document.getElementById('orderMenu');
