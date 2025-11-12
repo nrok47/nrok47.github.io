@@ -25,7 +25,7 @@ async function loadStock() {
   }
 }
 
-// ====== ฟังก์ชันบันทึกการสั่งซื้อ ======
+// ====== ฟังก์ชันบันทึกการสั่งซื้อและตัด Stock ======
 async function saveOrder(name, orders) {
   try {
     // โหลด orders log ปัจจุบัน
@@ -53,18 +53,23 @@ async function saveOrder(name, orders) {
     // บันทึกลง localStorage
     localStorage.setItem('ordersLog', JSON.stringify(ordersLog));
     
-    // คำนวณ stock ใหม่
+    // 🔴 อัปเดต Stock
     const currentStock = await loadStock();
     const updatedStock = { ...currentStock };
     
     Object.keys(orders).forEach(item => {
-      if (updatedStock[item]) {
-        updatedStock[item] = parseInt(updatedStock[item]) - parseInt(orders[item]);
+      if (updatedStock[item] !== undefined) {
+        const currentQty = parseInt(updatedStock[item]);
+        const orderQty = parseInt(orders[item]);
+        updatedStock[item] = Math.max(0, currentQty - orderQty); // ไม่ให้ติดลบ
+        
+        console.log(`✂️ ตัด stock: ${item} จาก ${currentQty} เหลือ ${updatedStock[item]} ชิ้น`);
       }
     });
     
-    // บันทึก stock ใหม่
+    // บันทึก stock ใหม่ลง localStorage
     localStorage.setItem('stockData', JSON.stringify(updatedStock));
+    console.log('📦 Stock ที่อัปเดต:', updatedStock);
     
     return newOrder;
     
@@ -88,13 +93,25 @@ async function submitOrder(name, orders) {
     const refCode = Math.floor(Math.random() * 900000) + 100000;
     const totalAmount = orderResult.totalAmount;
     
+    // สรุปการตัด stock
+    let stockSummary = '<div style="line-height: 1.6; text-align: left; display: inline-block;">';
+    Object.entries(orders).forEach(([item, qty]) => {
+      stockSummary += `📦 ${item}: ตัด ${qty} ชิ้น<br>`;
+    });
+    stockSummary += '</div>';
+    
     statusEl.classList.remove('loading', 'error');
     statusEl.classList.add('success');
     statusEl.innerHTML = `
-      <div style="line-height: 1.6;">
-        ✓ สั่งซื้อสำเร็จแล้ว!<br>
-        ยอดรวม: ${totalAmount} บาท<br>
-        <strong>รหัสอ้างอิง: ${refCode}</strong>
+      <div style="line-height: 1.8;">
+        <strong>✓ สั่งซื้อสำเร็จแล้ว!</strong><br>
+        <div style="margin: 10px 0; font-size: 12px; color: #666;">
+          ${stockSummary}
+        </div>
+        <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px;">
+          ยอดรวม: <strong>${totalAmount} บาท</strong><br>
+          รหัสอ้างอิง: <strong>${refCode}</strong>
+        </div>
       </div>
     `;
     
@@ -105,7 +122,7 @@ async function submitOrder(name, orders) {
     setTimeout(() => {
       loadStockAndRenderMenu();
       statusEl.classList.remove('show');
-    }, 2000);
+    }, 3000);
     
   } catch (err) {
     console.error("Error:", err);

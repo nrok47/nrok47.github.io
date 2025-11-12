@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const saved = localStorage.getItem('stockData');
           if (saved) {
             currentStock = JSON.parse(saved);
+            console.log('📦 โหลด stock จาก localStorage:', currentStock);
           }
         } catch (e) {
           console.log("No saved stock data");
