@@ -1,40 +1,24 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>ตั้งค่าสินค้า (ผู้ขาย)</title>
-  <script src="script.js" defer></script>
-  <style>
-    body { font-family: sans-serif; max-width: 400px; margin: auto; }
-    label { display: block; margin-bottom: 8px; }
-    button { margin-top: 12px; }
-  </style>
+  <meta charset="UTF-8">
+  <title>ตั้งค่าสินค้า (ผู้ขาย)</title>
+  <script src="script.js" defer></script> 
+  <style>
+    body { font-family: sans-serif; max-width: 400px; margin: auto; }
+    label { display: block; margin-bottom: 8px; }
+    button { margin-top: 12px; }
+  </style>
 </head>
 <body>
-  <h2>ตั้งค่าสินค้าในสต็อก</h2>
-  <form id="stockForm">
-    <div id="stockInputs"></div>
-    <button type="submit">บันทึกสต็อก</button>
-  </form>
-  <p id="status"></p>
+  <h2>ตั้งค่าสินค้าในสต็อก</h2>
+  <form id="stockForm">
+    <div id="stockInputs"></div>
+    <button type="submit">บันทึกสต็อก</button>
+  </form>
+  <p id="status"></p>
 
-  <script>
-    const menuList = ["สลัดผัก (40.-)", "น้ำเต้าหู้ (15.-)", "น้ำฟักทอง(15.-)", "น้ำฟักทอง(20.-)", "แซนด์วิชไข่ (25.-)"];
-    const stockDiv = document.getElementById('stockInputs');
-    menuList.forEach(name => {
-      stockDiv.innerHTML += `
-        <label>${name}: <input type="number" name="${name}" min="0" value="0"> ชิ้น</label>`;
-    });
-
-    document.getElementById('stockForm').addEventListener('submit', e => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
-      const stockData = {};
-      formData.forEach((v, k) => stockData[k] = v);
-      saveStock(stockData);
-    });
-  </script>
-
-  <p><a href="order.html">→ ไปหน้าสั่งสินค้า</a></p>
+    
+  <p><a href="order.html">→ ไปหน้าสั่งสินค้า</a></p>
 </body>
 </html>
