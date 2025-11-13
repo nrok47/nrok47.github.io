@@ -100,17 +100,52 @@ async function submitOrder(name, orders) {
     });
     stockSummary += '</div>';
     
+    // สร้าง QR Code Prompt Pay
+    const qrCodeUrl = generatePromptPayQR(totalAmount);
+    
     statusEl.classList.remove('loading', 'error');
     statusEl.classList.add('success');
     statusEl.innerHTML = `
-      <div style="line-height: 1.8;">
-        <strong>✓ สั่งซื้อสำเร็จแล้ว!</strong><br>
-        <div style="margin: 10px 0; font-size: 12px; color: #666;">
+      <div style="line-height: 1.8; text-align: center;">
+        <strong style="font-size: 18px;">✓ สั่งซื้อสำเร็จแล้ว!</strong><br>
+        
+        <div style="margin: 15px 0; font-size: 12px; color: #666; text-align: left; display: inline-block;">
           ${stockSummary}
         </div>
-        <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px;">
-          ยอดรวม: <strong>${totalAmount} บาท</strong><br>
-          รหัสอ้างอิง: <strong>${refCode}</strong>
+        
+        <div style="margin: 20px 0; border-top: 2px solid rgba(245,87,108,0.3); padding-top: 15px;">
+          <div style="font-size: 18px; font-weight: bold; color: #f5576c;">💰 ยอดชำระ: ${totalAmount} บาท</div>
+          <div style="font-size: 12px; color: #999; margin-top: 5px;">รหัสอ้างอิง: <strong>${refCode}</strong></div>
+        </div>
+        
+        <div style="margin: 20px 0; border-top: 2px solid rgba(245,87,108,0.3); padding-top: 15px;">
+          <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">💳 ช่องทางชำระเงิน:</div>
+          
+          <div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 13px; line-height: 1.6;">
+            <div style="margin-bottom: 8px;">
+              <strong>🏦 บัญชีเงินฝาก</strong><br>
+              กรุงไทย - ลัดดา ใบดำ<br>
+              <span style="font-size: 16px; font-weight: bold; color: #2a5298;">4520184878</span>
+            </div>
+          </div>
+          
+          <div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 13px; line-height: 1.6;">
+            <div>
+              <strong>📱 PromptPay / พร้อมเพย์</strong><br>
+              <span style="font-size: 16px; font-weight: bold; color: #2a5298;">0857450847</span>
+            </div>
+          </div>
+          
+          <div style="margin-top: 15px; padding: 12px; background: #f0f0f0; border-radius: 8px;">
+            <div style="font-size: 12px; margin-bottom: 10px; color: #666;">
+              📲 สแกน QR Code ด้านล่างเพื่อชำระเงิน
+            </div>
+            <img src="${qrCodeUrl}" alt="QR Code" style="width: 180px; height: 180px; border-radius: 6px; border: 2px solid #2a5298;">
+          </div>
+        </div>
+        
+        <div style="margin-top: 15px; padding: 12px; background: #fff3f5; border-radius: 8px; font-size: 12px; color: #666; border-left: 4px solid #f5576c;">
+          ⏱️ รอดำเนินการประมวลผลจากผู้ขาย ขอบคุณครับ/ค่ะ
         </div>
       </div>
     `;
@@ -121,8 +156,8 @@ async function submitOrder(name, orders) {
     // รีโหลด Stock ใหม่หลังสั่งซื้อสำเร็จ
     setTimeout(() => {
       loadStockAndRenderMenu();
-      statusEl.classList.remove('show');
-    }, 3000);
+      // ไม่ซ่อน status element เพราะต้องการให้ลูกค้าเห็น QR code
+    }, 4000);
     
   } catch (err) {
     console.error("Error:", err);
@@ -130,6 +165,22 @@ async function submitOrder(name, orders) {
     statusEl.classList.add('error');
     statusEl.textContent = "❌ เกิดข้อผิดพลาด: " + err.message;
   }
+}
+
+// ====== ฟังก์ชันสร้าง QR Code Prompt Pay ======
+function generatePromptPayQR(amount) {
+  // ใช้ API qrcode.thaipayment.net
+  // Format: https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=...
+  // สำหรับ PromptPay: 00020126360014th.co.mpm.promptpay0009100857450847540510${amount}6304xxxx
+  
+  // ทดแทน: ใช้ qrcode.thaipayment.net
+  const phoneNumber = '0857450847';
+  const promptPayData = `00020126360014th.co.mpm.promptpay0009${phoneNumber.padStart(13, '0')}540510${amount}6304XXXX`;
+  
+  // ใช้ API สร้าง QR Code
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(promptPayData)}`;
+  
+  return qrUrl;
 }
 
 // ****** Logic สำหรับหน้าสั่งสินค้า (order.html) ******
