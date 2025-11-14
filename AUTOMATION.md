@@ -74,7 +74,7 @@ git push origin main
 ## วิธีใช้งาน
 
 ### ผู้ขาย (Seller)
-1. เข้าไปที่ `index.html`
+1. เข้าไปที่ `seller.html`
 2. บันทึกสต็อกสินค้า → บันทึกใน localStorage
 3. GitHub Actions จะอัปเดต `stock-data.json` ใน repo ทุก 5 นาที
 

@@ -3,227 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ตั้งค่าสินค้า - ผู้ขาย</title>
-  <script src="index-script.js" defer></script>
+  <title>เมนู - ร้าน</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-
-    .container {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      max-width: 500px;
-      width: 100%;
-      padding: 40px;
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .header h1 {
-      font-size: 28px;
-      color: #333;
-      margin-bottom: 8px;
-    }
-
-    .header p {
-      color: #666;
-      font-size: 14px;
-    }
-
-    .badge {
-      display: inline-block;
-      background: #667eea;
-      color: white;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: bold;
-      margin-top: 8px;
-    }
-
-    form {
-      margin-bottom: 25px;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .form-group label {
-      flex: 1;
-      font-size: 14px;
-      color: #444;
-      font-weight: 500;
-    }
-
-    .form-group input {
-      width: 80px;
-      padding: 8px 12px;
-      border: 2px solid #e0e0e0;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: bold;
-      text-align: center;
-      transition: all 0.3s ease;
-    }
-
-    .form-group input:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 8px rgba(102, 126, 234, 0.2);
-    }
-
-    .unit {
-      font-size: 12px;
-      color: #999;
-      min-width: 40px;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    }
-
-    button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-    }
-
-    button:active {
-      transform: translateY(0);
-    }
-
-    #status {
-      margin-top: 20px;
-      padding: 12px;
-      border-radius: 8px;
-      text-align: center;
-      min-height: 24px;
-      font-size: 14px;
-      font-weight: 500;
-      display: none;
-    }
-
-    #status.show {
-      display: block;
-    }
-
-    #status.success {
-      background: #e8f5e9;
-      color: #2e7d32;
-      border-left: 4px solid #4caf50;
-    }
-
-    #status.error {
-      background: #ffebee;
-      color: #c62828;
-      border-left: 4px solid #f44336;
-    }
-
-    #status.loading {
-      background: #e3f2fd;
-      color: #1565c0;
-      border-left: 4px solid #2196f3;
-    }
-
-    .footer {
-      text-align: center;
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #e0e0e0;
-    }
-
-    .footer a {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: #667eea;
-      text-decoration: none;
-      font-weight: bold;
-      font-size: 14px;
-      transition: all 0.3s ease;
-      padding: 8px 16px;
-      border-radius: 6px;
-    }
-
-    .footer a:hover {
-      background: #f5f7ff;
-      color: #764ba2;
-    }
-
-    .footer a::before {
-      content: "→";
-      font-size: 18px;
-    }
-
-    @media (max-width: 480px) {
-      .container {
-        padding: 25px;
-      }
-
-      .header h1 {
-        font-size: 24px;
-      }
-
-      .form-group {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .form-group input {
-        width: 100%;
-      }
-    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Segoe UI, Tahoma, Geneva, Verdana, sans-serif;background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .box{background:#fff;border-radius:12px;padding:28px;max-width:560px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+    h1{font-size:26px;margin-bottom:6px}
+    p.sub{color:#666;margin-bottom:18px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:12px}
+    a.card{display:block;padding:14px;border-radius:10px;background:linear-gradient(135deg,#fff 0%,#f7f7f7 100%);text-decoration:none;color:#333;font-weight:700;border:2px solid rgba(0,0,0,0.04)}
+    a.card:hover{transform:translateY(-4px);box-shadow:0 8px 20px rgba(0,0,0,0.08)}
+    .hint{margin-top:16px;color:#999;font-size:13px}
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>🛍️ ตั้งค่าสินค้าในสต็อก</h1>
-      <p>จัดการสินค้าและจำนวนคงคลัง</p>
-      <span class="badge">ผู้ขาย</span>
+  <div class="box">
+    <h1>เลือกการใช้งาน</h1>
+    <p class="sub">เลือกหน้าที่ต้องการเข้าใช้: สำหรับผู้ขายหรือผู้ซื้อ</p>
+
+    <div class="grid">
+      <a class="card" href="seller.html">ผู้ขาย (จัดการสต็อก)</a>
+      <a class="card" href="order.html">ผู้ซื้อ (พิมพ์จำนวน)</a>
+      <a class="card" href="order_v2.html">ผู้ซื้อ (กด +1)</a>
+      <a class="card" href="report.html">ดูรายงาน</a>
     </div>
 
-    <form id="stockForm">
-      <div id="stockInputs"></div>
-      <button type="submit">💾 บันทึกสต็อก</button>
-    </form>
-
-    <div id="status"></div>
-
-    <div class="footer">
-      <a href="order.html">ไปหน้าสั่งสินค้า</a>
-      <a href="report.html" style="margin-left: 10px;">ดูรายงานสั่งซื้อ</a>
-    </div>
+    <div class="hint">คุณสามารถกลับมาเปลี่ยนตัวเลือกได้ตลอดเวลา</div>
   </div>
 </body>
 </html>

@@ -53,17 +53,17 @@ function submitOrder(name, orders) {
   .catch(err => document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาด: " + err);
 }
 
-// ****** ส่วนใหม่: Logic สำหรับหน้าตั้งค่าสินค้า (index.html) ******
+// ****** ส่วนใหม่: Logic สำหรับหน้าตั้งค่าสินค้า (seller.html) ******
 
 // ใช้ DOMContentLoaded เพื่อให้แน่ใจว่าองค์ประกอบ HTML ถูกโหลดแล้ว
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Logic สำหรับหน้าตั้งค่าสินค้า (index.html)
+    // 1. Logic สำหรับหน้าตั้งค่าสินค้า (seller.html)
     const stockForm = document.getElementById('stockForm');
     const stockDiv = document.getElementById('stockInputs');
 
     if (stockForm && stockDiv) {
-        // รายการสินค้าของคุณที่ใช้ใน index.html
-        // ต้องตรงกับโค้ดที่เคยอยู่ใน index.html (ตัวอย่างสินค้าใหม่ของคุณอาจไม่ตรงกับสินค้าเดิมที่ใช้ใน code.gs)
+    // รายการสินค้าของคุณที่ใช้ใน seller.html
+    // ต้องตรงกับโค้ดที่เคยอยู่ใน seller.html (ตัวอย่างสินค้าใหม่ของคุณอาจไม่ตรงกับสินค้าเดิมที่ใช้ใน code.gs)
         const menuList = ["ชาเขียว", "โกโก้", "กาแฟเย็น", "น้ำผึ้งมะนาว", "นมสด"]; 
         
         // ******* ฟังก์ชันสร้าง Input Fields (เอามาจาก index.html เดิม) *******
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // แต่ถ้าต้องการรวม ให้ตรวจสอบว่า loadStock ทำงานบน order.html ได้
 });
 
-// ****** โค้ดที่ใช้สำหรับ index.html: ใช้ script.js แทน ******
+// ****** โค้ดที่ใช้สำหรับ seller.html: ใช้ script.js แทน ******
 
 // if (document.getElementById('stockForm')) {
 //   const menuList = ["ชาเขียว", "โกโก้", "กาแฟเย็น", "น้ำผึ้งมะนาว", "นมสด"];

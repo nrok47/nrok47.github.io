@@ -23,10 +23,10 @@ function doGet(e) {
   if (page === 'seller') {
     return showSellerStockForm(e); 
   } else if (page === 'stock_data') {
-    // 1. ฟังก์ชันใหม่: ส่งข้อมูล Stock และ Price กลับไปเป็น JSON ให้ index.html (บน GitHub)
+  // 1. ฟังก์ชันใหม่: ส่งข้อมูล Stock และ Price กลับไปเป็น JSON ให้ seller.html (บน GitHub)
     return getStockDataAsJson();
   } else {
-    // ใช้สำหรับส่งโค้ด index.html เป็นค่าเริ่มต้น (ถ้ายังไม่ได้ใช้ GitHub Pages)
+  // ใช้สำหรับส่งโค้ด seller.html เป็นค่าเริ่มต้น (ถ้ายังไม่ได้ใช้ GitHub Pages)
     // แต่เมื่อใช้ GitHub Pages แล้ว ลิงก์หลักนี้อาจไม่ได้ใช้
     return HtmlService.createHtmlOutput('Access this page from your GitHub.io URL');
   }
@@ -81,7 +81,7 @@ function getStockDataAsJson() {
 
 // =============================================================
 // C. ฟังก์ชัน Web App สำหรับรับข้อมูล (doPost) 
-//    * ใช้รับคำสั่งสั่งซื้อจาก index.html (บน GitHub)
+//    * ใช้รับคำสั่งสั่งซื้อจาก seller.html (บน GitHub)
 // =============================================================
 
 function doPost(e) {
@@ -91,7 +91,7 @@ function doPost(e) {
     // เรียกใช้ฟังก์ชันบันทึกและตัด Stock
     const result = recordOrder(data); 
 
-    // ส่งผลลัพธ์กลับไปเป็น JSON ให้ index.html
+  // ส่งผลลัพธ์กลับไปเป็น JSON ให้ seller.html
     return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: result }))
         .setMimeType(ContentService.MimeType.JSON);
   } catch (error) {

@@ -1,5 +1,5 @@
 // === ตั้งค่าเก็บข้อมูลบน GitHub Pages ===
-const ITEM_PRICE = 20; // ราคาเริ่มต้น
+const ITEM_PRICE = 20; // ราคาเริ่มต้น (fallback)
 
 // ====== ฟังก์ชันโหลด stock จากไฟล์ JSON ======
 async function loadStock() {
@@ -7,14 +7,41 @@ async function loadStock() {
   if (statusElement) statusElement.textContent = "กำลังโหลดรายการสินค้า...";
 
   try {
-    // โหลดจากไฟล์ stock-data.json บน GitHub Pages
-    const res = await fetch('stock-data.json');
-    
-    // ตรวจสอบสถานะการตอบกลับ
-    if (!res.ok) {
-        throw new Error(`การเชื่อมต่อผิดพลาด (HTTP Status: ${res.status})`);
+    // ถ้ามีค่าใน localStorage ให้ใช้ค่านั้นเป็นที่ตั้ง (local-first)
+    const saved = localStorage.getItem('stockData');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // หากข้อมูลเก่ายังเป็นรูปแบบ name->qty ให้ normalize เป็น { price, qty }
+        const normalized = {};
+        Object.entries(parsed || {}).forEach(([k, v]) => {
+          if (v && typeof v === 'object' && (('qty' in v) || ('price' in v))) {
+            normalized[k.replace(/\s*\(.*\)\s*$/, '').trim()] = {
+              price: Number(v.price) || ITEM_PRICE,
+              qty: Number(v.qty) || 0
+            };
+          } else {
+            // primitive
+            const qty = Number(v) || 0;
+            const m = k.match(/\((\d+)/);
+            const price = m ? Number(m[1]) : ITEM_PRICE;
+            const baseName = k.replace(/\s*\(.*\)\s*$/, '').trim();
+            normalized[baseName] = { price, qty };
+          }
+        });
+        if (statusElement) statusElement.textContent = "";
+        return normalized;
+      } catch (e) {
+        console.warn('Invalid stockData in localStorage, fallback to fetch', e);
+      }
     }
 
+    // มิฉะนั้น โหลดจากไฟล์ stock-data.json บน GitHub Pages
+    const res = await fetch('stock-data.json');
+    // ตรวจสอบสถานะการตอบกลับ
+    if (!res.ok) {
+      throw new Error(`การเชื่อมต่อผิดพลาด (HTTP Status: ${res.status})`);
+    }
     if (statusElement) statusElement.textContent = "";
     return await res.json();
 
@@ -39,12 +66,25 @@ async function saveOrder(name, orders) {
       console.log("No existing orders log, creating new one");
     }
     
-    // สร้าง order entry ใหม่
+    // โหลด stock เพื่อคำนวณราคาและอัปเดตสต็อก
+    const currentStock = await loadStock();
+
+    // สร้าง order entry ใหม่: normalize orders เป็นรูปแบบ per-item { qty, price, total }
+    const ordersNormalized = {};
+    let totalAmount = 0;
+    Object.keys(orders).forEach(item => {
+      const qty = parseInt(orders[item], 10) || 0;
+      const price = (currentStock[item] && Number.isFinite(Number(currentStock[item].price))) ? Number(currentStock[item].price) : ITEM_PRICE;
+      const itemTotal = qty * price;
+      ordersNormalized[item] = { qty, price, total: itemTotal };
+      totalAmount += itemTotal;
+    });
+
     const newOrder = {
       date: new Date().toISOString(),
       customerName: name,
-      orders: orders,
-      totalAmount: Object.keys(orders).reduce((sum, item) => sum + (orders[item] * ITEM_PRICE), 0)
+      orders: ordersNormalized,
+      totalAmount: totalAmount
     };
     
     // เพิ่มเข้า log
@@ -53,17 +93,16 @@ async function saveOrder(name, orders) {
     // บันทึกลง localStorage
     localStorage.setItem('ordersLog', JSON.stringify(ordersLog));
     
-    // 🔴 อัปเดต Stock
-    const currentStock = await loadStock();
+    // 🔴 อัปเดต Stock (ลด qty ของแต่ละรายการ)
     const updatedStock = { ...currentStock };
-    
-    Object.keys(orders).forEach(item => {
-      if (updatedStock[item] !== undefined) {
-        const currentQty = parseInt(updatedStock[item]);
-        const orderQty = parseInt(orders[item]);
-        updatedStock[item] = Math.max(0, currentQty - orderQty); // ไม่ให้ติดลบ
-        
-        console.log(`✂️ ตัด stock: ${item} จาก ${currentQty} เหลือ ${updatedStock[item]} ชิ้น`);
+
+    Object.keys(ordersNormalized).forEach(item => {
+      if (typeof updatedStock[item] !== 'undefined') {
+        const currentQty = parseInt(updatedStock[item].qty, 10) || 0;
+        const orderQty = parseInt(ordersNormalized[item].qty, 10) || 0;
+        updatedStock[item].qty = Math.max(0, currentQty - orderQty); // ไม่ให้ติดลบ
+
+        console.log(`✂️ ตัด stock: ${item} จาก ${currentQty} เหลือ ${updatedStock[item].qty} ชิ้น`);
       }
     });
     
@@ -92,11 +131,11 @@ async function submitOrder(name, orders) {
     // สร้างเลขอ้างอิง
     const refCode = Math.floor(Math.random() * 900000) + 100000;
     const totalAmount = orderResult.totalAmount;
-    
-    // สรุปการตัด stock
+
+    // สรุปการตัด stock (ใช้ orders ที่ normalize แล้ว)
     let stockSummary = '<div style="line-height: 1.6; text-align: left; display: inline-block;">';
-    Object.entries(orders).forEach(([item, qty]) => {
-      stockSummary += `📦 ${item}: ตัด ${qty} ชิ้น<br>`;
+    Object.entries(orderResult.orders).forEach(([item, detail]) => {
+      stockSummary += `📦 ${item}: ตัด ${detail.qty} ชิ้น (฿${detail.price} / ชิ้น) = ฿${detail.total}<br>`;
     });
     stockSummary += '</div>';
     
@@ -194,24 +233,30 @@ async function loadStockAndRenderMenu() {
         return;
     }
     
-    // 1. สร้างเมนู
+    // 1. สร้างเมนู (ใช้โมเดล { price, qty })
     menuDiv.innerHTML = '';
     Object.keys(stock).forEach(name => {
+        const item = stock[name] || { price: ITEM_PRICE, qty: 0 };
+        const price = Number.isFinite(Number(item.price)) ? Number(item.price) : ITEM_PRICE;
+        const qty = Number.isFinite(Number(item.qty)) ? Number(item.qty) : 0;
         menuDiv.innerHTML += `
             <div class="form-group">
-              <label>${name} (เหลือ ${stock[name]} ชิ้น)</label>
-              <input type="number" min="0" max="${stock[name]}" data-name="${name}" value="0">
+              <label>${name} (เหลือ ${qty} ชิ้น) — ${price}.-</label>
+              <input type="number" min="0" max="${qty}" data-name="${name}" value="0">
             </div>`;
     });
 
-    // 2. Event Listener คำนวณยอดรวม
-    menuDiv.addEventListener('input', () => {
-        let total = 0;
-        menuDiv.querySelectorAll('input').forEach(inp => {
-            total += parseInt(inp.value || 0) * ITEM_PRICE; // ใช้ ITEM_PRICE
-        });
-        totalP.textContent = `รวมทั้งหมด: ${total} บาท`;
+  // 2. Event Listener คำนวณยอดรวม (ใช้ราคาจาก stock model)
+  menuDiv.addEventListener('input', () => {
+    let total = 0;
+    menuDiv.querySelectorAll('input').forEach(inp => {
+      const qty = parseInt(inp.value || 0, 10) || 0;
+      const itemName = inp.dataset.name;
+      const price = (stock[itemName] && Number.isFinite(Number(stock[itemName].price))) ? Number(stock[itemName].price) : ITEM_PRICE;
+      total += qty * price;
     });
+    totalP.textContent = `รวมทั้งหมด: ${total} บาท`;
+  });
 
     // 3. Event Listener สั่งสินค้า
     document.getElementById('orderForm')?.addEventListener('submit', e => {

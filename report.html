@@ -410,7 +410,7 @@
     </div>
 
     <div class="footer">
-      <a href="index.html">← ตั้งค่าสต็อก</a>
+      <a href="seller.html">← ตั้งค่าสต็อก</a>
       <a href="order.html">→ สั่งสินค้า</a>
     </div>
   </div>
@@ -470,8 +470,10 @@
       orders.forEach(order => {
         totalRevenue += order.totalAmount || 0;
         uniqueCustomers.add(order.customerName);
-        
-        Object.entries(order.orders || {}).forEach(([item, qty]) => {
+
+        // order.orders now expected as { item: { qty, price, total } }
+        Object.entries(order.orders || {}).forEach(([item, detail]) => {
+          const qty = (detail && detail.qty) ? Number(detail.qty) : 0;
           totalItems += qty;
           if (!itemsData[item]) {
             itemsData[item] = 0;
@@ -507,12 +509,13 @@
           minute: '2-digit' 
         });
 
+        // Render items (new format: { item: { qty, price, total } })
         const items = Object.entries(order.orders || {})
-          .map(([item, qty]) => `${item}: ${qty} ชิ้น`)
+          .map(([item, detail]) => `${item}: ${detail.qty} ชิ้น × ฿${detail.price} = ฿${detail.total}`)
           .join('<br>');
 
         const totalQty = Object.values(order.orders || {})
-          .reduce((sum, qty) => sum + qty, 0);
+          .reduce((sum, detail) => sum + (detail.qty || 0), 0);
 
         const row = `
           <tr>
@@ -549,9 +552,10 @@
         itemsList.innerHTML += card;
       });
 
-      // สร้างตาราง summary
+      // สร้างตาราง summary (อ่านราคาโดยตรงจาก stock model)
+      const stock = JSON.parse(localStorage.getItem('stockData')) || {};
       Object.entries(stats.itemsData).forEach(([item, qty]) => {
-        const price = extractPrice(item);
+        const price = (stock[item] && Number.isFinite(Number(stock[item].price))) ? Number(stock[item].price) : 20;
         const total = price * qty;
         const row = `
           <tr>
@@ -565,9 +569,17 @@
     }
 
     function extractPrice(itemName) {
-      // ดึงราคาจากชื่อสินค้า เช่น "สลัดผัก (40.-)"
-      const match = itemName.match(/\((\d+)/);
-      return match ? parseInt(match[1]) : 20;
+      // อ่านราคาจาก stock-data model ใน localStorage (format: { name: { price, qty } })
+      try {
+        const stock = JSON.parse(localStorage.getItem('stockData')) || {};
+        if (stock[itemName] && Number.isFinite(Number(stock[itemName].price))) {
+          return Number(stock[itemName].price);
+        }
+      } catch (e) {
+        console.warn('Cannot read stockData in extractPrice', e);
+      }
+      // fallback
+      return 20;
     }
 
     function exportToCSV() {
@@ -594,7 +606,10 @@
           minute: '2-digit' 
         });
 
-        Object.entries(order.orders || {}).forEach(([item, qty]) => {
+        // order.orders is { item: {qty, price, total} }
+        Object.entries(order.orders || {}).forEach(([item, detail]) => {
+          const qty = detail.qty || 0;
+          const price = detail.price || '';
           csv += `"${date}","${time}","${order.customerName}","${item}",${qty},"${order.totalAmount}"\n`;
         });
       });
