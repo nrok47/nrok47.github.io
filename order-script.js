@@ -1,6 +1,31 @@
 // === ตั้งค่าเก็บข้อมูลบน GitHub Pages ===
 const ITEM_PRICE = 20; // ราคาเริ่มต้น (fallback)
 
+// --- Backend config ---
+// หากต้องการให้บันทึกคำสั่งซื้อไปยังเซิร์ฟเวอร์ ให้ตั้งค่าเป็น URL ของ Web App / API
+// ตัวอย่าง: const BACKEND_URL = 'https://script.google.com/macros/s/....../exec';
+// หากไม่ต้องการ ให้เว้นเป็น '' (ค่าเริ่มต้น) — จะบันทึกเฉพาะใน localStorage เท่านั้น
+//const BACKEND_URL = '';
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycby2dZRMG4EcB8D6N980k0rCwJQWv0oWso2QTsDvsKrJf_EzCZee5hU7l3hl0o_R6Z8/exec';
+
+// ส่งคำสั่งซื้อไปยัง backend (ถ้ามีการตั้งค่า)
+async function postOrderToBackend(order) {
+  if (!BACKEND_URL) return { ok: false, reason: 'no-backend' };
+  try {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(order)
+    });
+    let body = null;
+    try { body = await res.json(); } catch(e) { body = await res.text(); }
+    if (!res.ok) return { ok: false, status: res.status, body };
+    return { ok: true, status: res.status, body };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 // ====== ฟังก์ชันโหลด stock จากไฟล์ JSON ======
 async function loadStock() {
   const statusElement = document.getElementById("status");
@@ -197,6 +222,23 @@ async function submitOrder(name, orders) {
       loadStockAndRenderMenu();
       // ไม่ซ่อน status element เพราะต้องการให้ลูกค้าเห็น QR code
     }, 4000);
+
+    // หากกำหนด BACKEND_URL ให้พยายามส่งคำสั่งซื้อขึ้นเซิร์ฟเวอร์ด้วย
+    (async () => {
+      const serverResult = await postOrderToBackend(orderResult);
+      const serverNote = document.createElement('div');
+      serverNote.style.marginTop = '12px';
+      serverNote.style.fontSize = '13px';
+      serverNote.style.color = '#444';
+      if (serverResult.ok) {
+        serverNote.innerHTML = '📤 ข้อมูลถูกส่งไปยังเซิร์ฟเวอร์เรียบร้อย';
+      } else if (serverResult.reason === 'no-backend') {
+        serverNote.innerHTML = 'ℹ️ เซิร์ฟเวอร์ไม่ถูกตั้งค่า — ข้อมูลบันทึกเฉพาะในเครื่อง (localStorage)';
+      } else {
+        serverNote.innerHTML = '⚠️ เกิดข้อผิดพลาดในการส่งข้อมูลไปยังเซิร์ฟเวอร์: ' + (serverResult.error || serverResult.body || serverResult.status);
+      }
+      statusEl.appendChild(serverNote);
+    })();
     
   } catch (err) {
     console.error("Error:", err);

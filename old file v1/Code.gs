@@ -107,18 +107,32 @@ function doPost(e) {
 // =============================================================
 
 function recordOrder(data) {
-  const orderSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ORDER_SHEET_NAME);
-  const stockSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(STOCK_SHEET_NAME);
-  
-  const customerName = data.customerName;
-  let totalAmount = 0;
+  // เปิดชีทด้วยชื่อที่กำหนด
+  const ss = SpreadsheetApp.openById('1vpnJ5hjqk3YxQ8nn2uXug65cT6iKwoBRdhOhrD0B0JY');
+  const orderSheet = ss.getSheetByName(ORDER_SHEET_NAME);
+  const stockSheet = ss.getSheetByName(STOCK_SHEET_NAME);
+
+  // รับข้อมูลจาก JSON ใหม่
+  const customerName = data.customerName || '';
+  const orderObj = data.orders || {};
+  const totalAmount = data.totalAmount || 0;
+  const orderDate = data.date ? new Date(data.date) : new Date();
+
+  // เตรียมข้อมูลสำหรับบันทึก
   let orderDetails = [];
   let orderedItems = 0;
+  let itemNames = [];
 
-  for (let i = 0; i < PRICES.length; i++) {
-    const qty = parseInt(data['qty' + i]) || 0; 
-    totalAmount += qty * PRICES[i];
+  // อ่านชื่อสินค้าทั้งหมดจาก stockSheet (คอลัมน์ 1)
+  const stockNames = stockSheet.getRange(2, 1, stockSheet.getLastRow()-1, 1).getValues().map(r => r[0]);
+
+  // Map orderObj ตามชื่อสินค้าใน stockSheet
+  for (let i = 0; i < stockNames.length; i++) {
+    const name = stockNames[i];
+    const item = orderObj[name];
+    const qty = item ? parseInt(item.qty) : 0;
     orderDetails.push(qty);
+    itemNames.push(name);
     if (qty > 0) orderedItems++;
   }
 
@@ -129,26 +143,26 @@ function recordOrder(data) {
     throw new Error('กรุณาใส่ชื่อผู้สั่ง');
   }
 
-  // ... (ส่วนการบันทึก Sheet และตัด Stock เหมือนเดิม)
+  // สร้าง refCode
   const timestamp = new Date().getTime();
   const refCode = (timestamp % 100000) + 1;
-  const totalAmountRounded = totalAmount; 
 
-  const newRow = [new Date(), customerName, totalAmountRounded.toFixed(2), refCode, ...orderDetails];
+  // สร้างแถวใหม่: [วันที่, ชื่อลูกค้า, ยอดรวม, รหัสอ้างอิง, qty1, qty2, ...]
+  const newRow = [orderDate, customerName, totalAmount, refCode, ...orderDetails];
   orderSheet.appendRow(newRow);
-  
-  // ตัด STOCK
-  for (let i = 0; i < orderDetails.length; i++) {
+
+  // ตัด STOCK ตามชื่อสินค้า
+  for (let i = 0; i < stockNames.length; i++) {
     const orderedQty = orderDetails[i];
     if (orderedQty > 0) {
-      const stockCell = stockSheet.getRange(i + 2, 3);
+      const stockCell = stockSheet.getRange(i + 2, 3); // qty อยู่คอลัมน์ 3
       const currentStock = stockCell.getValue() || 0;
       const newStock = currentStock - orderedQty;
-      stockCell.setValue(newStock); 
+      stockCell.setValue(newStock);
     }
   }
-  
-  return `สั่งซื้อสำเร็จ! ยอดรวมที่ต้องชำระ: ${totalAmountRounded.toFixed(2)} บาท (รหัสอ้างอิง: ${refCode})`;
+
+  return `สั่งซื้อสำเร็จ! ยอดรวมที่ต้องชำระ: ${totalAmount} บาท (รหัสอ้างอิง: ${refCode})`;
 }
 
 // ... (ฟังก์ชันอื่น ๆ เช่น showSellerStockForm, saveStockConfig, onOpen ยังคงเดิม)
