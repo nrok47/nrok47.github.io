@@ -6,7 +6,7 @@ const ITEM_PRICE = 20; // ราคาเริ่มต้น (fallback)
 // ตัวอย่าง: const BACKEND_URL = 'https://script.google.com/macros/s/....../exec';
 // หากไม่ต้องการ ให้เว้นเป็น '' (ค่าเริ่มต้น) — จะบันทึกเฉพาะใน localStorage เท่านั้น
 //const BACKEND_URL = '';
-const BACKEND_URL = 'https://script.google.com/macros/s/AKfycby2dZRMG4EcB8D6N980k0rCwJQWv0oWso2QTsDvsKrJf_EzCZee5hU7l3hl0o_R6Z8/exec';
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
 
 // ส่งคำสั่งซื้อไปยัง backend (ถ้ามีการตั้งค่า)
 async function postOrderToBackend(order) {
