@@ -177,3 +177,59 @@ function safeParseJSON_(v) {
     try { return JSON.parse(s); } catch (e2) { return null; }
   }
 }
+
+/**
+ * Google Apps Script: รองรับการ POST เพื่ออัปเดตสถานะการชำระเงินในชีท 'orderz'
+ */
+
+function doPost(e) {
+  try {
+    const payload = JSON.parse(e.postData.contents);
+    const { orderId, paidAmount, paymentMethod } = payload;
+
+    if (!orderId || isNaN(paidAmount) || !paymentMethod) {
+      throw new Error('ข้อมูลไม่ครบถ้วน');
+    }
+
+    const sheetName = 'orderz';
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) throw new Error("Sheet '" + sheetName + "' not found");
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const orderIdIndex = headers.indexOf('orderId');
+    const paidAmountIndex = headers.indexOf('paidAmount');
+    const paymentsIndex = headers.indexOf('payments');
+    const paidIndex = headers.indexOf('paid');
+
+    if (orderIdIndex === -1 || paidAmountIndex === -1 || paymentsIndex === -1 || paidIndex === -1) {
+      throw new Error('คอลัมน์ที่จำเป็นไม่พบในชีท');
+    }
+
+    const rowIndex = data.findIndex(row => row[orderIdIndex] === orderId);
+    if (rowIndex === -1) {
+      throw new Error('ไม่พบคำสั่งซื้อที่มี orderId: ' + orderId);
+    }
+
+    const currentPaidAmount = Number(data[rowIndex][paidAmountIndex]) || 0;
+    const newPaidAmount = currentPaidAmount + paidAmount;
+
+    const currentPayments = JSON.parse(data[rowIndex][paymentsIndex] || '[]');
+    currentPayments.push({
+      date: new Date().toISOString(),
+      amount: paidAmount,
+      method: paymentMethod
+    });
+
+    const isFullyPaid = newPaidAmount >= Number(data[rowIndex][headers.indexOf('totalAmount')]);
+
+    sheet.getRange(rowIndex + 1, paidAmountIndex + 1).setValue(newPaidAmount);
+    sheet.getRange(rowIndex + 1, paymentsIndex + 1).setValue(JSON.stringify(currentPayments));
+    sheet.getRange(rowIndex + 1, paidIndex + 1).setValue(isFullyPaid ? 'TRUE' : 'FALSE');
+
+    return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
+  }
+}

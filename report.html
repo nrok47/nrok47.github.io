@@ -419,7 +419,7 @@
   
 
   <script>
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
 
     // ตั้งค่าวันที่เป็นวันนี้ตามค่าเริ่มต้น
     document.addEventListener('DOMContentLoaded', () => {
@@ -620,7 +620,6 @@
           minute: '2-digit' 
         });
 
-        // Render items (new format: { item: { qty, price, total } })
         const items = Object.entries(order.orders || {})
           .map(([item, detail]) => `${item}: ${detail.qty} ชิ้น × ฿${detail.price} = ฿${detail.total}`)
           .join('<br>');
@@ -636,8 +635,7 @@
           const paidText = `ชำระแล้ว ฿${paidAmount}`;
           paymentCell = `<td style="color:green; font-weight:bold;">${paidText}</td>`;
         } else {
-          // โปรเจกต์นี้ใช้ Google Sheet เป็นแหล่งข้อมูลหลัก จึงไม่บันทึกกลับหน้าเว็บโดยตรง
-          paymentCell = `<td><button disabled title="บันทึกการชำระเงินได้ที่ Google Sheet">เก็บเงิน (แก้ที่ Sheet)</button></td>`;
+          paymentCell = `<td><button onclick="collectPayment('${order.orderId}')">เก็บเงิน</button></td>`;
         }
 
         const row = `
@@ -654,10 +652,52 @@
       });
     }
 
-    // การบันทึกการชำระเงินต้องทำผ่าน Google Sheet (ไม่บันทึกในหน้าเว็บนี้)
-    function collectPayment() {
-      alert('ระบบนี้ดึงข้อมูลจาก Google Sheet เท่านั้น\nหากต้องการบันทึกการชำระเงิน กรุณาอัปเดตข้อมูลใน Google Sheet ของคุณ');
+    async function updatePaymentStatus(orderId, paidAmount, paymentMethod) {
+    try {
+      const payload = {
+        orderId,
+        paidAmount,
+        paymentMethod
+      };
+      const response = await fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update payment status');
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        alert('สถานะการชำระเงินอัปเดตสำเร็จ');
+        generateReport(); // รีเฟรชรายงาน
+      } else {
+        alert('อัปเดตสถานะการชำระเงินไม่สำเร็จ: ' + result.message);
+      }
+    } catch (error) {
+      alert('เกิดข้อผิดพลาดในการอัปเดตสถานะการชำระเงิน: ' + error.message);
     }
+  }
+
+  function collectPayment(orderId) {
+    const paidAmount = prompt('กรุณาใส่จำนวนเงินที่ชำระแล้ว:');
+    if (!paidAmount || isNaN(paidAmount) || Number(paidAmount) <= 0) {
+      alert('จำนวนเงินไม่ถูกต้อง');
+      return;
+    }
+
+    const paymentMethod = prompt('กรุณาใส่ช่องทางการชำระเงิน (เช่น PromptPay, เงินสด):', 'PromptPay');
+    if (!paymentMethod) {
+      alert('กรุณาระบุช่องทางการชำระเงิน');
+      return;
+    }
+
+    updatePaymentStatus(orderId, Number(paidAmount), paymentMethod);
+  }
 
     function displayItemsBreakdown(stats) {
       const itemsList = document.getElementById('itemsList');
