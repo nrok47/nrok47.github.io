@@ -291,5 +291,42 @@
       <a href="report.html" style="margin-left: 10px;">ดูรายงาน</a>
     </div>
   </div>
+
+  <script>
+  // fallback submit handler that posts form as application/x-www-form-urlencoded (avoids preflight)
+  (function(){
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
+    const form = document.getElementById('orderForm');
+    if (!form) return;
+    form.addEventListener('submit', async function(ev){
+      ev.preventDefault();
+      const statusEl = document.getElementById('status');
+      statusEl.className = 'loading show';
+      statusEl.textContent = 'กำลังส่งคำสั่งซื้อ...';
+      try {
+        const fd = new FormData(form);
+        // convert to URLSearchParams
+        const params = new URLSearchParams();
+        for (const [k,v] of fd.entries()) params.append(k, v);
+        // include timestamp
+        params.append('timestamp', new Date().toISOString());
+        const resp = await fetch(WEB_APP_URL, { method: 'POST', body: params });
+        if (!resp.ok) throw new Error('network');
+        const data = await resp.json().catch(()=>({ success:false, message:'invalid-json' }));
+        if (data && data.success) {
+          statusEl.className = 'success show';
+          statusEl.textContent = 'สั่งซื้อสำเร็จ';
+          form.reset();
+        } else {
+          statusEl.className = 'error show';
+          statusEl.textContent = 'สั่งซื้อล้มเหลว: ' + (data.message || 'unknown');
+        }
+      } catch (err) {
+        statusEl.className = 'error show';
+        statusEl.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+      }
+    });
+  })();
+  </script>
 </body>
 </html>

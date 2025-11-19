@@ -653,51 +653,41 @@
     }
 
     async function updatePaymentStatus(orderId, paidAmount, paymentMethod) {
-    try {
-      const payload = {
-        orderId,
-        paidAmount,
-        paymentMethod
-      };
-      const response = await fetch(WEB_APP_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      try {
+        // send as application/x-www-form-urlencoded (no custom headers) to avoid preflight
+        const params = new URLSearchParams();
+        params.append('orderId', orderId);
+        params.append('paidAmount', String(paidAmount));
+        params.append('paymentMethod', paymentMethod);
 
-      if (!response.ok) {
-        throw new Error('Failed to update payment status');
+        const response = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          body: params
+        });
+
+        if (!response.ok) throw new Error('Failed to update payment status (network)');
+        const result = await response.json().catch(()=>({ success: false, message: 'invalid-json' }));
+        if (result && result.success) {
+          alert('สถานะการชำระเงินอัปเดตสำเร็จ');
+          generateReport();
+        } else {
+          alert('อัปเดตสถานะการชำระเงินไม่สำเร็จ: ' + (result.message || 'unknown'));
+        }
+      } catch (err) {
+        alert('เกิดข้อผิดพลาดในการอัปเดตสถานะการชำระเงิน: ' + err.message);
       }
+    }
 
-      const result = await response.json();
-      if (result.success) {
-        alert('สถานะการชำระเงินอัปเดตสำเร็จ');
-        generateReport(); // รีเฟรชรายงาน
-      } else {
-        alert('อัปเดตสถานะการชำระเงินไม่สำเร็จ: ' + result.message);
+    function collectPayment(orderId) {
+      const paidAmount = prompt('กรุณาใส่จำนวนเงินที่ชำระแล้ว:');
+      if (!paidAmount || isNaN(paidAmount) || Number(paidAmount) <= 0) {
+        alert('จำนวนเงินไม่ถูกต้อง');
+        return;
       }
-    } catch (error) {
-      alert('เกิดข้อผิดพลาดในการอัปเดตสถานะการชำระเงิน: ' + error.message);
+      const paymentMethod = prompt('กรุณาใส่ช่องทางการชำระเงิน (เช่น PromptPay, เงินสด):', 'PromptPay');
+      if (!paymentMethod) { alert('กรุณาระบุช่องทางการชำระเงิน'); return; }
+      updatePaymentStatus(orderId, Number(paidAmount), paymentMethod);
     }
-  }
-
-  function collectPayment(orderId) {
-    const paidAmount = prompt('กรุณาใส่จำนวนเงินที่ชำระแล้ว:');
-    if (!paidAmount || isNaN(paidAmount) || Number(paidAmount) <= 0) {
-      alert('จำนวนเงินไม่ถูกต้อง');
-      return;
-    }
-
-    const paymentMethod = prompt('กรุณาใส่ช่องทางการชำระเงิน (เช่น PromptPay, เงินสด):', 'PromptPay');
-    if (!paymentMethod) {
-      alert('กรุณาระบุช่องทางการชำระเงิน');
-      return;
-    }
-
-    updatePaymentStatus(orderId, Number(paidAmount), paymentMethod);
-  }
 
     function displayItemsBreakdown(stats) {
       const itemsList = document.getElementById('itemsList');

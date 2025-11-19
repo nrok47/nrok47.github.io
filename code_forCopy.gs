@@ -1,10 +1,6 @@
 function doGet(e) {
-  try {
-    const orders = getOrdersFromSheet_('orderz');
-    return ContentService.createTextOutput(JSON.stringify(orders)).setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ error: err.message })).setMimeType(ContentService.MimeType.JSON);
-  }
+  return ContentService.createTextOutput(JSON.stringify(getOrdersFromSheet_('orderz')))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function getOrdersFromSheet_(sheetName) {
@@ -59,7 +55,16 @@ function safeParseJSON_(v) {
 
 function doPost(e) {
   try {
-    const { orderId, paidAmount, paymentMethod } = JSON.parse(e.postData.contents);
+    let payload;
+    if (e.postData && e.postData.type === 'application/json') {
+      payload = JSON.parse(e.postData.contents);
+    } else {
+      // form-encoded: use e.parameter
+      payload = e.parameter || {};
+    }
+    const orderId = payload.orderId;
+    const paidAmount = Number(payload.paidAmount || 0);
+    const paymentMethod = payload.paymentMethod;
     if (!orderId || isNaN(paidAmount) || !paymentMethod) throw new Error('ข้อมูลไม่ครบถ้วน');
 
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('orderz');
@@ -67,13 +72,16 @@ function doPost(e) {
 
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
-    const rowIndex = data.findIndex(row => row[headers.indexOf('orderId')] === orderId);
-    if (rowIndex === -1) throw new Error(`ไม่พบคำสั่งซื้อที่มี orderId: ${orderId}`);
-
+    const orderIdIndex = headers.indexOf('orderId');
     const paidAmountIndex = headers.indexOf('paidAmount');
     const paymentsIndex = headers.indexOf('payments');
     const paidIndex = headers.indexOf('paid');
     const totalAmountIndex = headers.indexOf('totalAmount');
+
+    if (orderIdIndex === -1) throw new Error('คอลัมน์ orderId ไม่พบ');
+
+    const rowIndex = data.findIndex(row => String(row[orderIdIndex]) == String(orderId));
+    if (rowIndex === -1) throw new Error('ไม่พบคำสั่งซื้อที่มี orderId: ' + orderId);
 
     const currentPaidAmount = Number(data[rowIndex][paidAmountIndex]) || 0;
     const newPaidAmount = currentPaidAmount + paidAmount;
