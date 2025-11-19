@@ -375,6 +375,7 @@
             <th>รายการสินค้า</th>
             <th>จำนวน</th>
             <th>ยอดรวม</th>
+            <th>สถานะชำระเงิน</th>
           </tr>
         </thead>
         <tbody id="ordersBody">
@@ -519,6 +520,17 @@
         const totalQty = Object.values(order.orders || {})
           .reduce((sum, detail) => sum + (detail.qty || 0), 0);
 
+        // Payment column: show paid badge or เก็บเงิน button
+        let paymentCell = '';
+        const paidAmount = order.paidAmount || 0;
+        const isPaid = order.paid || (paidAmount >= (order.totalAmount || 0));
+        if (isPaid) {
+          const paidText = `ชำระแล้ว ฿${paidAmount}`;
+          paymentCell = `<td style="color:green; font-weight:bold;">${paidText}</td>`;
+        } else {
+          paymentCell = `<td><button onclick="collectPayment(${order._idx})">เก็บเงิน</button></td>`;
+        }
+
         const row = `
           <tr>
             <td class="time">${time}</td>
@@ -526,10 +538,45 @@
             <td class="order-items">${items}</td>
             <td>${totalQty} ชิ้น</td>
             <td class="amount">${order.totalAmount} บาท</td>
+            ${paymentCell}
           </tr>
         `;
         tbody.innerHTML += row;
       });
+    }
+
+    // ฟังก์ชันรับเงิน/บันทึกการชำระสำหรับ order โดย index ใน ordersLog
+    function collectPayment(originalIndex) {
+      const ordersLog = JSON.parse(localStorage.getItem('ordersLog')) || [];
+      const order = ordersLog[originalIndex];
+      if (!order) { alert('ไม่พบคำสั่งซื้อนี้'); return; }
+
+      const defaultAmount = order.totalAmount - (order.paidAmount || 0);
+      const amountStr = prompt(`ใส่จำนวนเงินที่ได้รับ (คงเหลือ: ${defaultAmount}):`, defaultAmount);
+      if (amountStr === null) return; // ยกเลิก
+      const amount = parseFloat(amountStr) || 0;
+      if (amount <= 0) { alert('จำนวนเงินไม่ถูกต้อง'); return; }
+
+      const method = prompt('ช่องทางการชำระเงิน (เช่น: PromptPay, เงินสด, โอน):', 'PromptPay') || 'Unknown';
+
+      // สร้าง payment record
+      const paymentRecord = {
+        date: new Date().toISOString(),
+        amount: amount,
+        method: method
+      };
+
+      order.payments = order.payments || [];
+      order.payments.push(paymentRecord);
+      order.paidAmount = (order.paidAmount || 0) + amount;
+      order.paid = order.paid || (order.paidAmount >= (order.totalAmount || 0));
+
+      // บันทึกกลับไปที่ localStorage
+      ordersLog[originalIndex] = order;
+      localStorage.setItem('ordersLog', JSON.stringify(ordersLog));
+
+      // รีเฟรชรายงาน
+      generateReport();
     }
 
     function displayItemsBreakdown(stats) {
