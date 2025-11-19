@@ -370,13 +370,14 @@
       <table class="orders-table" id="ordersTable">
         <thead>
           <tr>
-            <th>เวลา</th>
-            <th>ชื่อลูกค้า</th>
-            <th>รายการสินค้า</th>
-            <th>จำนวน</th>
-            <th>ยอดรวม</th>
-            <th>สถานะชำระเงิน</th>
-          </tr>
+              <th>เวลา</th>
+              <th>Order ID</th>
+              <th>ชื่อลูกค้า</th>
+              <th>รายการสินค้า</th>
+              <th>จำนวน</th>
+              <th>ยอดรวม</th>
+              <th>สถานะชำระเงิน</th>
+            </tr>
         </thead>
         <tbody id="ordersBody">
         </tbody>
@@ -547,6 +548,9 @@
         }
       })();
       const paid = Boolean(r.paid) || paidAmount >= totalAmount;
+      // include orderId and rowNumber if provided by backend
+      const orderId = r.orderId || r.orderID || r.id || null;
+      const rowNumber = r.rowNumber || r.row || null;
 
       return {
         date,
@@ -555,7 +559,9 @@
         totalAmount,
         paidAmount,
         payments,
-        paid
+        paid,
+        orderId,
+        rowNumber
       };
     });
 
@@ -636,15 +642,18 @@
           const paidText = `ชำระแล้ว ฿${paidAmount}`;
           paymentCell = `<td style="color:green; font-weight:bold;">${paidText}</td>`;
         } else {
-          // prepare args: pass orderId or rowNumber
-          const orderIdArg = order.orderId ? `'${String(order.orderId).replace(/'/g, "\\'")}'` : 'null';
-          const rowNumberArg = order.rowNumber ? order.rowNumber : 'null';
-          paymentCell = `<td><button onclick="collectPayment(${orderIdArg}, ${rowNumberArg})">เก็บเงิน</button></td>`;
+          // prepare a button with data attributes so collectPayment can read values reliably
+          const orderIdEsc = order.orderId ? String(order.orderId).replace(/'/g, "\\'") : '';
+          const rowNumberVal = order.rowNumber ? order.rowNumber : '';
+          const totalAmtArg = order.totalAmount || 0;
+          const paidAmtArg = order.paidAmount || 0;
+          paymentCell = `<td><button data-orderid='${orderIdEsc}' data-row='${rowNumberVal}' data-total='${totalAmtArg}' data-paid='${paidAmtArg}' onclick="collectPayment(this)">เก็บเงิน</button></td>`;
         }
 
         const row = `
           <tr>
             <td class="time">${time}</td>
+            <td class="order-id">${order.orderId ? order.orderId : 'row#' + (order.rowNumber || '')}</td>
             <td class="customer-name">${order.customerName}</td>
             <td class="order-items">${items}</td>
             <td>${totalQty} ชิ้น</td>
@@ -656,48 +665,130 @@
       });
     }
 
-    function collectPayment(orderId) {
-      const paidAmount = prompt('กรุณาใส่จำนวนเงินที่ชำระแล้ว:');
-      if (!paidAmount || isNaN(paidAmount) || Number(paidAmount) <= 0) {
-        alert('จำนวนเงินไม่ถูกต้อง');
-        return;
-      }
+    
+      function collectPayment(btn) {
+        // read data from button attributes
+        const orderId = btn.getAttribute('data-orderid') || null;
+        const rowNumber = btn.getAttribute('data-row') ? Number(btn.getAttribute('data-row')) : null;
+        const totalAmount = Number(btn.getAttribute('data-total') || 0);
+        const paidAmount = Number(btn.getAttribute('data-paid') || 0);
 
-      const paymentMethod = prompt('กรุณาใส่ช่องทางการชำระเงิน (เช่น PromptPay, เงินสด):', 'PromptPay');
-      if (!paymentMethod) {
-        alert('กรุณาระบุช่องทางการชำระเงิน');
-        return;
-      }
-
-      if (!orderId) {
-        alert('ไม่พบข้อมูล orderId');
-        return;
-      }
-
-      const params = {
-        orderId: orderId,
-        paidAmount: Number(paidAmount),
-        paymentMethod
-      };
-
-      updatePaymentStatus(params).then(result => {
-        if (result.success) {
-          alert('สถานะการชำระเงินอัปเดตสำเร็จ');
-          generateReport();
-        } else {
-          alert('อัปเดตสถานะการชำระเงินไม่สำเร็จ: ' + (result.message || 'unknown'));
+        if (!orderId && !rowNumber) {
+          alert('ไม่พบข้อมูล orderId หรือ rowNumber');
+          return;
         }
-      });
-    }
+        // calculate remaining amount (we assume full payment each time)
+        const remaining = (Number(totalAmount) || 0) - (Number(paidAmount) || 0);
+        if (remaining <= 0) {
+          alert('ยอดค้างชำระเป็น 0 แล้ว');
+          return;
+        }
+
+        // show payment method choices (QR code, PromptPay, Cash)
+        showPaymentChoice(function(method) {
+          if (!method) return;
+          const params = {
+            orderId: orderId,
+            rowNumber: rowNumber,
+            paidAmount: Number(remaining),
+            paymentMethod: method
+          };
+
+          updatePaymentStatus(params).then(result => {
+            if (result.success) {
+              alert('สถานะการชำระเงินอัปเดตสำเร็จ');
+              generateReport();
+            } else {
+              alert('อัปเดตสถานะการชำระเงินไม่สำเร็จ: ' + (result.message || 'unknown'));
+            }
+          });
+        });
+      }
+
+      // UI helper: show an overlay with bullet choices for payment method
+      function showPaymentChoice(onChoose) {
+        // create overlay
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.left = 0;
+        overlay.style.top = 0;
+        overlay.style.right = 0;
+        overlay.style.bottom = 0;
+        overlay.style.background = 'rgba(0,0,0,0.4)';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.zIndex = 9999;
+
+        const box = document.createElement('div');
+        box.style.background = '#fff';
+        box.style.borderRadius = '8px';
+        box.style.padding = '20px';
+        box.style.minWidth = '280px';
+        box.style.boxShadow = '0 6px 24px rgba(0,0,0,0.2)';
+
+        const title = document.createElement('div');
+        title.textContent = 'เลือกช่องทางการชำระเงิน (จ่ายเต็มจำนวน)';
+        title.style.marginBottom = '12px';
+        title.style.fontWeight = '700';
+        box.appendChild(title);
+
+        const list = document.createElement('ul');
+        list.style.listStyle = 'disc';
+        list.style.paddingLeft = '20px';
+        list.style.marginBottom = '12px';
+
+        const options = [
+          { key: 'qr', label: 'QR code' },
+          { key: 'promptpay', label: 'พร้อมเพย์' },
+          { key: 'cash', label: 'เงินสด' }
+        ];
+
+        options.forEach(opt => {
+          const li = document.createElement('li');
+          li.style.margin = '8px 0';
+          const btn = document.createElement('button');
+          btn.textContent = opt.label;
+          btn.style.padding = '8px 12px';
+          btn.style.marginLeft = '8px';
+          btn.style.border = '1px solid #ccc';
+          btn.style.borderRadius = '6px';
+          btn.style.cursor = 'pointer';
+          btn.onclick = () => {
+            document.body.removeChild(overlay);
+            onChoose(opt.label);
+          };
+          li.appendChild(document.createTextNode(''));
+          li.appendChild(btn);
+          list.appendChild(li);
+        });
+
+        box.appendChild(list);
+
+        const cancel = document.createElement('button');
+        cancel.textContent = 'ยกเลิก';
+        cancel.style.marginTop = '8px';
+        cancel.onclick = () => { document.body.removeChild(overlay); onChoose(null); };
+        box.appendChild(cancel);
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+      }
 
     async function updatePaymentStatus(params) {
       try {
+        // Use form-urlencoded to avoid CORS preflight. Do NOT set custom headers.
         const body = new URLSearchParams();
-        body.append('orderId', params.orderId);
-        body.append('paidAmount', String(params.paidAmount));
+        body.append('type', 'setPaid');
+        if (params.orderId) body.append('orderId', params.orderId);
+        if (params.rowNumber) body.append('rowNumber', String(params.rowNumber));
+        body.append('paidAmount', String(Number(params.paidAmount)));
         body.append('paymentMethod', params.paymentMethod);
 
-        const response = await fetch(WEB_APP_URL, { method: 'POST', body });
+        const response = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          body: body
+        });
         if (!response.ok) throw new Error('Network error');
         const result = await response.json().catch(() => ({ success: false, message: 'Invalid JSON response' }));
         return result;

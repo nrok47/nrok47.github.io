@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ตั้งค่าสินค้า - ผู้ขาย</title>
-  <script src="index-script.js" defer></script>
+  <script src="script.js" defer></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Segoe UI, Tahoma, Geneva, Verdana, sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
@@ -34,7 +34,19 @@
     </div>
 
     <form id="stockForm">
-      <div id="stockInputs"></div>
+      <table id="seller-table" style="width:100%;margin-bottom:20px;border-collapse:collapse">
+        <thead>
+          <tr style="background:#f5f5f5">
+            <th>รหัสสินค้า</th>
+            <th>ชื่อสินค้า</th>
+            <th>ราคา</th>
+            <th>จำนวนคงคลัง</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Rows will be rendered by script.js -->
+        </tbody>
+      </table>
       <button type="submit">💾 บันทึกสต็อก</button>
     </form>
 
@@ -48,5 +60,6 @@
       <a href="report.html">ดูรายงานสั่งซื้อ</a>
     </div>
   </div>
+  <!-- All logic now handled by script.js -->
 </body>
 </html>

@@ -92,6 +92,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         // สร้างรายการจากคีย์ของ currentStock
         const menuList = Object.keys(currentStock);
 
+        // หากหน้า `seller.html` มีฟอร์มที่เตรียมไว้ล่วงหน้า (pre-populated inputs)
+        // ให้รักษา markup เดิมไว้และอย่าเขียนทับด้วยรายการที่สร้างจาก currentStock.
+        // ตรวจจับได้โดยการมองหา input ที่มีชื่อที่ลงท้ายด้วย `_qty` (รูปแบบของฟอร์มที่เตรียมไว้)
+        if (stockDiv.querySelector('input[name$="_qty"]')) {
+          console.log('Detected pre-populated seller inputs; keeping existing markup.');
+        } else {
         // ถ้าไม่มีข้อมูลเลย ให้แสดงช่องเพิ่มรายการใหม่บนหน้า (UX เพื่อให้ผู้ขายเพิ่มสินค้าได้)
         if (!menuList || menuList.length === 0) {
             stockDiv.innerHTML = `
@@ -122,8 +128,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
               `;
             });
-        } else {
-            stockDiv.innerHTML = menuList.map(name => {
+        }
+        else {
+          stockDiv.innerHTML = menuList.map(name => {
                 const item = currentStock[name] || {};
                 const qty = Number.isFinite(Number(item.qty)) ? Number(item.qty) : 0;
                 const price = Number.isFinite(Number(item.price)) ? Number(item.price) : 0;
@@ -135,6 +142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                   <span class="unit">ชิ้น</span>
                 </div>
             `}).join('');
+        }
         }
 
         // จัดการ Event บันทึก

@@ -1,6 +1,25 @@
 function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify(getOrdersFromSheet_('orderz')))
-    .setMimeType(ContentService.MimeType.JSON);
+  try {
+    const type = (e && e.parameter && e.parameter.type) ? String(e.parameter.type).toLowerCase() : '';
+    if (type === 'getseller' || type === 'getstock') {
+      return ContentService.createTextOutput(JSON.stringify(getSellerFromSheet_('seller'))).setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput(JSON.stringify(getOrdersFromSheet_('orderz'))).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, message: err.message })).setMimeType(ContentService.MimeType.JSON);
+  }
+function getSellerFromSheet_(sheetName) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (!sheet) return [];
+  const vals = sheet.getDataRange().getValues();
+  if (!vals || vals.length < 2) return [];
+  const headers = vals[0].map(h => String(h || '').trim());
+  const rows = vals.slice(1);
+  return rows.map(r => {
+    const obj = {};
+    r.forEach((cell, i) => obj[headers[i] || `col${i}`] = cell);
+    return obj;
+  });
 }
 
 function getOrdersFromSheet_(sheetName) {
@@ -60,12 +79,13 @@ function safeParseJSON_(v) {
 function doPost(e) {
   try {
     let payload = {};
-
-    // ถ้ามาเป็น JSON body
-    if (e.postData && e.postData.type && e.postData.type.toLowerCase().indexOf('application/json') !== -1) {
+    // robust: รองรับทั้ง JSON และ form-urlencoded
+    const contentType = (e.postData && (e.postData.type || e.postData.contentType || ''));
+    if (contentType && contentType.toLowerCase().indexOf('application/json') !== -1) {
+      // JSON body
       payload = JSON.parse(e.postData.contents || '{}');
     } else if (e.postData && e.postData.contents) {
-      // ถ้ามาเป็น form-urlencoded (raw body)
+      // form-urlencoded
       const raw = e.postData.contents;
       raw.split('&').forEach(pair => {
         if (!pair) return;
@@ -79,6 +99,27 @@ function doPost(e) {
       payload = e.parameter || {};
     }
 
+    // --- NEW: seller stock update ---
+    if (payload.type === 'updateStock' && payload.stock && typeof payload.stock === 'object') {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName('seller');
+      if (!sheet) throw new Error("Sheet 'seller' not found");
+      const data = sheet.getDataRange().getValues();
+      const headers = data[0].map(h => String(h || '').trim());
+      const idIdx = headers.indexOf('itemId');
+      const qtyIdx = headers.indexOf('reorderLevel') !== -1 ? headers.indexOf('reorderLevel') : headers.indexOf('qty');
+      if (idIdx === -1 || qtyIdx === -1) throw new Error('itemId or stock column not found');
+      let updated = 0;
+      Object.entries(payload.stock).forEach(([itemId, qty]) => {
+        const rowIdx = data.findIndex((row, i) => i > 0 && String(row[idIdx]) === String(itemId));
+        if (rowIdx > 0) {
+          sheet.getRange(rowIdx + 1, qtyIdx + 1).setValue(Number(qty));
+          updated++;
+        }
+      });
+      return ContentService.createTextOutput(JSON.stringify({ success: true, updated })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     // If request includes customerName or orders => create new order
     if (payload.customerName || payload.orders || payload.items || payload.order) {
       return createOrder_(payload);
@@ -86,11 +127,12 @@ function doPost(e) {
 
     // Otherwise treat as payment update
     const orderIdInput = payload.orderId || null;
+    const rowNumberInput = payload.rowNumber ? Number(payload.rowNumber) : null;
     const paidAmount = Number(payload.paidAmount || 0);
     const paymentMethod = payload.paymentMethod;
 
-    if (!orderIdInput) {
-      throw new Error('ข้อมูลไม่ครบถ้วน: ต้องมี orderId');
+    if (!orderIdInput && !rowNumberInput) {
+      throw new Error('ข้อมูลไม่ครบถ้วน: ต้องมี orderId หรือ rowNumber');
     }
 
     if (isNaN(paidAmount) || paidAmount <= 0) {
@@ -116,9 +158,18 @@ function doPost(e) {
       throw new Error('คอลัมน์ที่จำเป็น (paidAmount, payments, paid, totalAmount) ไม่พบในชีท');
     }
 
-    const rowIndex = data.findIndex(row => String(row[orderIdIndex]) === String(orderIdInput));
-    if (rowIndex === -1) {
-      throw new Error('ไม่พบคำสั่งซื้อที่ระบุ (ตรวจสอบ orderId)');
+    let rowIndex = -1;
+    if (orderIdInput) {
+      rowIndex = data.findIndex(row => String(row[orderIdIndex]) === String(orderIdInput));
+      if (rowIndex === -1) {
+        throw new Error('ไม่พบคำสั่งซื้อที่ระบุ (ตรวจสอบ orderId)');
+      }
+    } else if (rowNumberInput) {
+      // rowNumber is expected to be the sheet row number (1-based). data array is 0-based including header row
+      rowIndex = rowNumberInput - 1;
+      if (rowIndex < 1 || rowIndex >= data.length) {
+        throw new Error('rowNumber นอกช่วงข้อมูล');
+      }
     }
 
     const currentPaidAmount = Number(data[rowIndex][paidAmountIndex]) || 0;
@@ -134,6 +185,7 @@ function doPost(e) {
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
   }
+}
 }
 
 // helper: create new order row
@@ -247,5 +299,57 @@ function createOrder_(payload) {
   row[idxMap['paid']] = paidFlag ? 'TRUE' : 'FALSE';
 
   sheet.appendRow(row);
+  
+    // --- NEW: decrement seller 'reorderLevel' (or 'qty') according to ordered quantities ---
+    try {
+      const sellerSheet = ss.getSheetByName('seller');
+      if (sellerSheet) {
+        const svals = sellerSheet.getDataRange().getValues();
+        if (svals && svals.length >= 2) {
+          const shdr = svals[0].map(c => String(c || '').trim());
+          const idIdx = shdr.indexOf('itemId') !== -1 ? shdr.indexOf('itemId') : 0;
+          const nameIdx = shdr.indexOf('name') !== -1 ? shdr.indexOf('name') : 1;
+          const reorderIdx = shdr.indexOf('reorderLevel') !== -1 ? shdr.indexOf('reorderLevel') : (shdr.indexOf('qty') !== -1 ? shdr.indexOf('qty') : -1);
+          const lastUpdatedIdx = shdr.indexOf('lastUpdated') !== -1 ? shdr.indexOf('lastUpdated') : -1;
+
+          // build maps for quick lookup
+          const idToRow = {};
+          const nameToId = {};
+          for (let i = 1; i < svals.length; i++) {
+            const row = svals[i];
+            const id = String(row[idIdx] || '').trim();
+            const nm = String(row[nameIdx] || '').trim();
+            if (id) idToRow[id] = i + 1; // sheet row number
+            if (nm) nameToId[nm] = id || null;
+          }
+
+          if (reorderIdx !== -1) {
+            Object.entries(ordersObj).forEach(([key, it]) => {
+              // prefer itemId match; otherwise try match by name
+              let itemId = null;
+              if (sellerMap[key]) itemId = key;
+              else if (nameToId[key]) itemId = nameToId[key];
+              else {
+                const possible = Object.keys(idToRow).find(k => k.toLowerCase() === key.toLowerCase());
+                if (possible) itemId = possible;
+              }
+
+              if (!itemId) return; // can't map this order item to seller row
+              const rowNumber = idToRow[itemId];
+              if (!rowNumber) return;
+              const currentVal = Number(sellerSheet.getRange(rowNumber, reorderIdx + 1).getValue()) || 0;
+              const reduceBy = Number(it.qty || 0);
+              const newVal = Math.max(0, currentVal - reduceBy);
+              sellerSheet.getRange(rowNumber, reorderIdx + 1).setValue(newVal);
+              if (lastUpdatedIdx !== -1) sellerSheet.getRange(rowNumber, lastUpdatedIdx + 1).setValue(new Date().toISOString());
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // non-fatal: if updating seller stock fails, don't block order creation
+      console.error('Failed updating seller stock:', e.message || e);
+    }
+  
   return ContentService.createTextOutput(JSON.stringify({ success: true, orderId })).setMimeType(ContentService.MimeType.JSON);
 }

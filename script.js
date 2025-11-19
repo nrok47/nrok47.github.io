@@ -4,90 +4,211 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_H
 
 // ====== ฟังก์ชันผู้ขาย: บันทึก stock ======
 function saveStock(stockData) {
-  document.getElementById("status").textContent = "กำลังบันทึก...";
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: { // สำคัญ: กำหนด Content-Type ให้ถูกต้อง
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ type: "setStock", data: stockData })
-  })
-  .then(res => res.text()) // อ่านผลลัพธ์เป็นข้อความ (เพราะเราส่งกลับเป็น ContentService.createTextOutput)
-  .then(txt => document.getElementById("status").textContent = txt)
-  .catch(err => document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาด: " + err);
+    const statusEl = document.getElementById("status");
+    statusEl.textContent = "กำลังบันทึก...";
+    statusEl.className = "show";
+    fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type: "updateStock", stock: stockData })
+    })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                statusEl.textContent = "✅ บันทึกสต็อกสำเร็จ";
+                statusEl.className = "show success";
+                loadAndRenderSellerTable();
+            } else {
+                statusEl.textContent = "❌ เกิดข้อผิดพลาด: " + (result.message || "ไม่สามารถบันทึกได้");
+                statusEl.className = "show error";
+            }
+        })
+        .catch(err => {
+            statusEl.textContent = "❌ เกิดข้อผิดพลาด: " + err;
+            statusEl.className = "show error";
+        });
 }
 
-// ====== ฟังก์ชันโหลด stock ======
-async function loadStock() {
-  try {
-    const res = await fetch(SCRIPT_URL + "?type=getStock");
-    if (!res.ok) throw new Error(`Network error: ${res.statusText}`);
-
-    // ตรวจสอบว่า Content-Type เป็น JSON ก่อนเรียก .json()
-    const contentType = res.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      return await res.json();
-    } else {
-      // ถ้าไม่ได้ส่ง JSON กลับมา อาจจะเป็น HTML error page ของ Google
-      throw new Error("Backend did not return JSON. Check Web App Deploy settings.");
-    }
-  } catch (err) {
-    console.error("Error loading stock:", err);
-    document.getElementById("status")?.textContent = "❌ ไม่สามารถโหลดสต็อกได้: " + err.message;
-    return {}; // คืนค่าว่างเพื่อไม่ให้โค้ดใน order.html พัง
-  }
+// ====== ฟังก์ชันโหลดและแสดง seller table ======
+async function loadAndRenderSellerTable() {
+    const statusEl = document.getElementById("status");
+    try {
+        const res = await fetch(SCRIPT_URL + "?type=getSeller");
+        if (!res.ok) throw new Error(`Network error: ${res.statusText}`);
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            const sellerRows = await res.json();
+            const tbody = document.querySelector('#seller-table tbody');
+            tbody.innerHTML = '';
+            sellerRows.slice(0, 5).forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.itemId}</td>
+                    <td>${row.name}</td>
+                    <td>${row.price}</td>
+                    <td><input type="number" min="0" value="${row.reorderLevel}" data-itemid="${row.itemId}" class="stock-input" style="width:80px"></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            throw new Error("Backend did not return JSON. Check Web App Deploy settings.");
+        }
+    } catch (err) {
+        console.error("Error loading stock:", err);
+        if (statusEl) statusEl.textContent = "ไม่สามารถโหลดสต็อกได้: " + err.message;
+    }
 }
 
 // ====== ฟังก์ชันลูกค้าสั่งของ ======
-function submitOrder(name, orders) {
-  document.getElementById("status").textContent = "กำลังสั่งซื้อ...";
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ type: "order", name, orders })
-  })
-  .then(res => res.text()) // อ่านผลลัพธ์เป็นข้อความ
-  .then(txt => document.getElementById("status").textContent = txt)
-  .catch(err => document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาด: " + err);
+async function submitOrder(name, orders) {
+    const statusEl = document.getElementById("status");
+    try {
+        statusEl.className = 'loading show';
+        statusEl.textContent = 'กำลังสั่งซื้อ...';
+
+        // สร้าง orderId และคำนวณ total
+        const orderId = 'ORD-' + Date.now().toString(36).toUpperCase();
+        const date = new Date().toISOString();
+        let totalAmount = 0;
+        Object.values(orders || {}).forEach(it => totalAmount += Number(it.total || (it.qty * it.price) || 0));
+
+        const payload = {
+            type: 'order',
+            orderId,
+            date,
+            customerName: name,
+            orders,
+            totalAmount,
+            paidAmount: 0,
+            payments: '[]',
+            paid: false
+        };
+
+        // พยายามส่งแบบ JSON (fetch)
+        const resp = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) throw new Error('Network response not OK: ' + resp.status);
+        const json = await resp.json().catch(()=>null);
+        if (json && json.success) {
+            statusEl.className = 'success show';
+            statusEl.textContent = 'สั่งซื้อสำเร็จ หมายเลข: ' + (json.orderId || orderId);
+            // reset form if present
+            const form = document.getElementById('orderForm');
+            if (form) form.reset();
+            return json;
+        }
+
+        // ถ้า server ตอบมาแต่ไม่ success -> show error and fallback
+        statusEl.className = 'error show';
+        statusEl.textContent = 'เซิร์ฟเวอร์ตอบกลับผิดพลาด — จะลองส่งแบบฟอร์มเป็น fallback...';
+    } catch (err) {
+        statusEl.className = 'error show';
+        statusEl.textContent = 'ไม่สามารถส่งผ่าน AJAX: ' + (err.message || err.name || err) + ' — จะลองส่งแบบฟอร์มเป็น fallback...';
+    }
+
+    // Fallback: สร้าง form แล้ว submit (bypass CORS)
+    try {
+        const fallbackForm = document.createElement('form');
+        fallbackForm.method = 'POST';
+        fallbackForm.action = SCRIPT_URL;
+        fallbackForm.target = '_blank';
+        // copy payload into hidden inputs
+        const payload = arguments[0]; // not used, rebuild below
+        const finalPayload = {
+            type: 'order',
+            orderId: orderId || ('ORD-' + Date.now().toString(36).toUpperCase()),
+            date: date || new Date().toISOString(),
+            customerName: name,
+            orders: JSON.stringify(orders),
+            totalAmount: String(Object.values(orders || {}).reduce((s, it) => s + Number(it.total || (it.qty * it.price) || 0), 0)),
+            paidAmount: '0',
+            payments: '[]',
+            paid: 'FALSE'
+        };
+        Object.entries(finalPayload).forEach(([k,v]) => {
+            const inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = k;
+            inp.value = v;
+            fallbackForm.appendChild(inp);
+        });
+        document.body.appendChild(fallbackForm);
+        fallbackForm.submit();
+        setTimeout(()=>fallbackForm.remove(), 2000);
+        return { success: true, fallback: true };
+    } catch (e) {
+        statusEl.className = 'error show';
+        statusEl.textContent = 'ส่งคำสั่งซื้อไม่สำเร็จ (ทั้ง AJAX และ fallback): ' + (e.message || e);
+        return { success: false, message: e.message || e };
+    }
+}
+
+// ====== ฟังก์ชันโหลดออเดอร์ทั้งหมด (สำหรับ report.html) ======
+async function getOrders() {
+    try {
+        const res = await fetch(SCRIPT_URL + "?type=getOrders");
+        if (!res.ok) throw new Error(`Network error: ${res.statusText}`);
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            return await res.json();
+        } else {
+            throw new Error("Backend did not return JSON. Check Web App Deploy settings.");
+        }
+    } catch (err) {
+        console.error("Error loading orders:", err);
+        return [];
+    }
+}
+
+// ====== ฟังก์ชันอัปเดตสถานะการจ่ายเงิน (สำหรับ report.html) ======
+async function setPaid(orderId, paidAmount, paymentMethod) {
+    try {
+        const payload = {
+            type: "setPaid",
+            orderId,
+            paidAmount: Number(paidAmount),
+            paymentMethod
+        };
+        const res = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("Network error");
+        const result = await res.json().catch(() => ({ success: false, message: "Invalid JSON response" }));
+        return result;
+    } catch (err) {
+        return { success: false, message: err.message };
+    }
 }
 
 // ****** ส่วนใหม่: Logic สำหรับหน้าตั้งค่าสินค้า (seller.html) ******
 
 // ใช้ DOMContentLoaded เพื่อให้แน่ใจว่าองค์ประกอบ HTML ถูกโหลดแล้ว
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Logic สำหรับหน้าตั้งค่าสินค้า (seller.html)
+    // สำหรับ seller.html
     const stockForm = document.getElementById('stockForm');
-    const stockDiv = document.getElementById('stockInputs');
-
-    if (stockForm && stockDiv) {
-    // รายการสินค้าของคุณที่ใช้ใน seller.html
-    // ต้องตรงกับโค้ดที่เคยอยู่ใน seller.html (ตัวอย่างสินค้าใหม่ของคุณอาจไม่ตรงกับสินค้าเดิมที่ใช้ใน code.gs)
-        const menuList = ["ชาเขียว", "โกโก้", "กาแฟเย็น", "น้ำผึ้งมะนาว", "นมสด"]; 
-        
-        // ******* ฟังก์ชันสร้าง Input Fields (เอามาจาก index.html เดิม) *******
-        menuList.forEach(name => {
-            stockDiv.innerHTML += `
-                <label>${name}: <input type="number" name="${name}" min="0" value="0"> ชิ้น</label>`;
-        });
-        // *******************************************************************
-        
-        // ******* ฟังก์ชันจัดการ Event บันทึก (เอามาจาก index.html เดิม) *******
+    const sellerTable = document.getElementById('seller-table');
+    if (stockForm && sellerTable) {
+        loadAndRenderSellerTable();
         stockForm.addEventListener('submit', e => {
             e.preventDefault();
-            const formData = new FormData(e.target);
+            const inputs = document.querySelectorAll('.stock-input');
             const stockData = {};
-            // สร้าง Object { "ชาเขียว": 10, "โกโก้": 5, ... }
-            formData.forEach((v, k) => stockData[k] = v); 
-            saveStock(stockData); // เรียกใช้ฟังก์ชันใน script.js
+            inputs.forEach(input => {
+                const itemId = input.getAttribute('data-itemid');
+                stockData[itemId] = input.value;
+            });
+            saveStock(stockData);
         });
-        // *******************************************************************
     }
-    
-    // 2. Logic สำหรับหน้าสั่งสินค้า (order.html) - โค้ดเดิม
-    // ... (ส่วนนี้ควรถูกแยกไปอยู่ใน block อื่น หรืออยู่ใน order.html)
-    // แต่ถ้าต้องการรวม ให้ตรวจสอบว่า loadStock ทำงานบน order.html ได้
+    // ... (order.html logic remains unchanged)
 });
 
 // ****** โค้ดที่ใช้สำหรับ seller.html: ใช้ script.js แทน ******
