@@ -1,13 +1,17 @@
 function doGet(e) {
   try {
     const type = (e && e.parameter && e.parameter.type) ? String(e.parameter.type).toLowerCase() : '';
+    let result;
     if (type === 'getseller' || type === 'getstock') {
-      return ContentService.createTextOutput(JSON.stringify(getSellerFromSheet_('seller'))).setMimeType(ContentService.MimeType.JSON);
+      result = getSellerFromSheet_('seller');
+    } else {
+      result = getOrdersFromSheet_('orderz');
     }
-    return ContentService.createTextOutput(JSON.stringify(getOrdersFromSheet_('orderz'))).setMimeType(ContentService.MimeType.JSON);
+    return setCORSHeaders_(ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON));
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, message: err.message })).setMimeType(ContentService.MimeType.JSON);
+    return setCORSHeaders_(ContentService.createTextOutput(JSON.stringify({ success: false, message: err.message })).setMimeType(ContentService.MimeType.JSON));
   }
+}
 function getSellerFromSheet_(sheetName) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return [];
@@ -76,6 +80,39 @@ function safeParseJSON_(v) {
   try { return JSON.parse(v); } catch { return null; }
 }
 
+function doGet(e) {
+  try {
+    const type = (e && e.parameter && e.parameter.type) ? String(e.parameter.type).toLowerCase() : '';
+    let result;
+    if (type === 'getseller' || type === 'getstock') {
+      result = getSellerFromSheet_('seller');
+    } else {
+      result = getOrdersFromSheet_('orderz');
+    }
+    return setCORSHeaders_(ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON));
+  } catch (err) {
+    return setCORSHeaders_(ContentService.createTextOutput(JSON.stringify({ success: false, message: err.message })).setMimeType(ContentService.MimeType.JSON));
+  }
+}
+
+function doOptions(e) {
+  return ContentService.createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT)
+    .setHeaders({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+}
+
+function setCORSHeaders_(output) {
+  return output.setHeaders({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  });
+}
+
 function doPost(e) {
   try {
     let payload = {};
@@ -117,12 +154,12 @@ function doPost(e) {
           updated++;
         }
       });
-      return ContentService.createTextOutput(JSON.stringify({ success: true, updated })).setMimeType(ContentService.MimeType.JSON);
+      return setCORSHeaders_(ContentService.createTextOutput(JSON.stringify({ success: true, updated })).setMimeType(ContentService.MimeType.JSON));
     }
 
     // If request includes customerName or orders => create new order
     if (payload.customerName || payload.orders || payload.items || payload.order) {
-      return createOrder_(payload);
+      return setCORSHeaders_(createOrder_(payload));
     }
 
     // Otherwise treat as payment update
@@ -181,14 +218,12 @@ function doPost(e) {
     sheet.getRange(rowIndex + 1, paymentsIndex + 1).setValue(JSON.stringify(currentPayments));
     sheet.getRange(rowIndex + 1, paidIndex + 1).setValue(newPaidAmount >= Number(data[rowIndex][totalAmountIndex]) ? 'TRUE' : 'FALSE');
 
-    return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
+    return setCORSHeaders_(ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON));
   } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
+    return setCORSHeaders_(ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON));
   }
 }
-}
-
-// helper: create new order row
+// ฟังก์ชันสร้าง order ใหม่และบันทึกลง sheet
 function createOrder_(payload) {
   const sheetName = 'orderz';
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -299,57 +334,57 @@ function createOrder_(payload) {
   row[idxMap['paid']] = paidFlag ? 'TRUE' : 'FALSE';
 
   sheet.appendRow(row);
-  
-    // --- NEW: decrement seller 'reorderLevel' (or 'qty') according to ordered quantities ---
-    try {
-      const sellerSheet = ss.getSheetByName('seller');
-      if (sellerSheet) {
-        const svals = sellerSheet.getDataRange().getValues();
-        if (svals && svals.length >= 2) {
-          const shdr = svals[0].map(c => String(c || '').trim());
-          const idIdx = shdr.indexOf('itemId') !== -1 ? shdr.indexOf('itemId') : 0;
-          const nameIdx = shdr.indexOf('name') !== -1 ? shdr.indexOf('name') : 1;
-          const reorderIdx = shdr.indexOf('reorderLevel') !== -1 ? shdr.indexOf('reorderLevel') : (shdr.indexOf('qty') !== -1 ? shdr.indexOf('qty') : -1);
-          const lastUpdatedIdx = shdr.indexOf('lastUpdated') !== -1 ? shdr.indexOf('lastUpdated') : -1;
 
-          // build maps for quick lookup
-          const idToRow = {};
-          const nameToId = {};
-          for (let i = 1; i < svals.length; i++) {
-            const row = svals[i];
-            const id = String(row[idIdx] || '').trim();
-            const nm = String(row[nameIdx] || '').trim();
-            if (id) idToRow[id] = i + 1; // sheet row number
-            if (nm) nameToId[nm] = id || null;
-          }
+  // --- NEW: decrement seller 'reorderLevel' (or 'qty') according to ordered quantities ---
+  try {
+    const sellerSheet = ss.getSheetByName('seller');
+    if (sellerSheet) {
+      const svals = sellerSheet.getDataRange().getValues();
+      if (svals && svals.length >= 2) {
+        const shdr = svals[0].map(c => String(c || '').trim());
+        const idIdx = shdr.indexOf('itemId') !== -1 ? shdr.indexOf('itemId') : 0;
+        const nameIdx = shdr.indexOf('name') !== -1 ? shdr.indexOf('name') : 1;
+        const reorderIdx = shdr.indexOf('reorderLevel') !== -1 ? shdr.indexOf('reorderLevel') : (shdr.indexOf('qty') !== -1 ? shdr.indexOf('qty') : -1);
+        const lastUpdatedIdx = shdr.indexOf('lastUpdated') !== -1 ? shdr.indexOf('lastUpdated') : -1;
 
-          if (reorderIdx !== -1) {
-            Object.entries(ordersObj).forEach(([key, it]) => {
-              // prefer itemId match; otherwise try match by name
-              let itemId = null;
-              if (sellerMap[key]) itemId = key;
-              else if (nameToId[key]) itemId = nameToId[key];
-              else {
-                const possible = Object.keys(idToRow).find(k => k.toLowerCase() === key.toLowerCase());
-                if (possible) itemId = possible;
-              }
+        // build maps for quick lookup
+        const idToRow = {};
+        const nameToId = {};
+        for (let i = 1; i < svals.length; i++) {
+          const row = svals[i];
+          const id = String(row[idIdx] || '').trim();
+          const nm = String(row[nameIdx] || '').trim();
+          if (id) idToRow[id] = i + 1; // sheet row number
+          if (nm) nameToId[nm] = id || null;
+        }
 
-              if (!itemId) return; // can't map this order item to seller row
-              const rowNumber = idToRow[itemId];
-              if (!rowNumber) return;
-              const currentVal = Number(sellerSheet.getRange(rowNumber, reorderIdx + 1).getValue()) || 0;
-              const reduceBy = Number(it.qty || 0);
-              const newVal = Math.max(0, currentVal - reduceBy);
-              sellerSheet.getRange(rowNumber, reorderIdx + 1).setValue(newVal);
-              if (lastUpdatedIdx !== -1) sellerSheet.getRange(rowNumber, lastUpdatedIdx + 1).setValue(new Date().toISOString());
-            });
-          }
+        if (reorderIdx !== -1) {
+          Object.entries(ordersObj).forEach(([key, it]) => {
+            // prefer itemId match; otherwise try match by name
+            let itemId = null;
+            if (sellerMap[key]) itemId = key;
+            else if (nameToId[key]) itemId = nameToId[key];
+            else {
+              const possible = Object.keys(idToRow).find(k => k.toLowerCase() === key.toLowerCase());
+              if (possible) itemId = possible;
+            }
+
+            if (!itemId) return; // can't map this order item to seller row
+            const rowNumber = idToRow[itemId];
+            if (!rowNumber) return;
+            const currentVal = Number(sellerSheet.getRange(rowNumber, reorderIdx + 1).getValue()) || 0;
+            const reduceBy = Number(it.qty || 0);
+            const newVal = Math.max(0, currentVal - reduceBy);
+            sellerSheet.getRange(rowNumber, reorderIdx + 1).setValue(newVal);
+            if (lastUpdatedIdx !== -1) sellerSheet.getRange(rowNumber, lastUpdatedIdx + 1).setValue(new Date().toISOString());
+          });
         }
       }
-    } catch (e) {
-      // non-fatal: if updating seller stock fails, don't block order creation
-      console.error('Failed updating seller stock:', e.message || e);
     }
-  
+  } catch (e) {
+    // non-fatal: if updating seller stock fails, don't block order creation
+    console.error('Failed updating seller stock:', e.message || e);
+  }
+
   return ContentService.createTextOutput(JSON.stringify({ success: true, orderId })).setMimeType(ContentService.MimeType.JSON);
 }
