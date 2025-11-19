@@ -109,7 +109,11 @@ async function saveOrder(name, orders) {
       date: new Date().toISOString(),
       customerName: name,
       orders: ordersNormalized,
-      totalAmount: totalAmount
+      totalAmount: totalAmount,
+      // payment tracking
+      payments: [], // array of { date, amount, method }
+      paidAmount: 0,
+      paid: false
     };
     
     // เพิ่มเข้า log

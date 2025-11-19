@@ -375,8 +375,6 @@
             <th>รายการสินค้า</th>
             <th>จำนวน</th>
             <th>ยอดรวม</th>
-            <th>สถานะ</th>
-            <th>การกระทำ</th>
           </tr>
         </thead>
         <tbody id="ordersBody">
@@ -435,11 +433,13 @@
       // โหลดข้อมูล orders จาก localStorage
       const ordersLog = JSON.parse(localStorage.getItem('ordersLog')) || [];
 
-      // กรองเฉพาะวันที่เลือก
-      const filteredOrders = ordersLog.filter(order => {
-        const orderDate = new Date(order.date).toISOString().split('T')[0];
-        return orderDate === selectedDate;
-      });
+      // กรองเฉพาะวันที่เลือก (เก็บ index ต้นฉบับเพื่อแก้ไขต่อ)
+      const filteredOrders = ordersLog
+        .map((order, idx) => Object.assign({}, order, { _idx: idx }))
+        .filter(order => {
+          const orderDate = new Date(order.date).toISOString().split('T')[0];
+          return orderDate === selectedDate;
+        });
 
       if (filteredOrders.length === 0) {
         document.getElementById('statsGrid').style.display = 'none';
@@ -519,12 +519,6 @@
         const totalQty = Object.values(order.orders || {})
           .reduce((sum, detail) => sum + (detail.qty || 0), 0);
 
-        // Prepare status and action
-        const status = order.paymentStatus === 'paid' ? 'paid' : 'pending';
-        const statusLabel = status === 'paid' ? `<span style="color:green;font-weight:700;">ชำระแล้ว</span>${order.paymentRef ? ' <br><small>Ref: ' + (order.paymentRef) + '</small>' : ''}` : `<span style="color:#d97706;font-weight:700;">รอชำระ</span>`;
-        const dateKey = encodeURIComponent(order.date);
-        const actionBtn = status === 'paid' ? `<button class="btn-disabled" disabled>ยืนยันแล้ว</button>` : `<button onclick="confirmPayment('${dateKey}')">ยืนยันชำระ</button>`;
-
         const row = `
           <tr>
             <td class="time">${time}</td>
@@ -532,34 +526,10 @@
             <td class="order-items">${items}</td>
             <td>${totalQty} ชิ้น</td>
             <td class="amount">${order.totalAmount} บาท</td>
-            <td>${statusLabel}</td>
-            <td>${actionBtn}</td>
           </tr>
         `;
         tbody.innerHTML += row;
       });
-    }
-
-    // ยืนยันการชำระโดยผู้ขาย (บันทึกลง localStorage)
-    function confirmPayment(encodedDate) {
-      const dateIso = decodeURIComponent(encodedDate);
-      const ref = prompt('กรุณาใส่รหัสอ้างอิงการโอน (หรือเว้นว่างไว้):', '');
-      if (ref === null) return; // user cancelled
-
-      const ordersLog = JSON.parse(localStorage.getItem('ordersLog')) || [];
-      const idx = ordersLog.findIndex(o => o.date === dateIso);
-      if (idx === -1) {
-        alert('ไม่พบคำสั่งซื้อที่ระบุ');
-        return;
-      }
-
-      ordersLog[idx].paymentStatus = 'paid';
-      ordersLog[idx].paymentRef = ref || '';
-      ordersLog[idx].paidAt = new Date().toISOString();
-
-      localStorage.setItem('ordersLog', JSON.stringify(ordersLog));
-      alert('บันทึกการยืนยันชำระเงินเรียบร้อยแล้ว');
-      generateReport();
     }
 
     function displayItemsBreakdown(stats) {
@@ -629,7 +599,7 @@
       }
 
       // สร้าง CSV
-      let csv = 'วันที่,เวลา,ชื่อลูกค้า,สินค้า,จำนวน,ยอดรวม\n';
+      let csv = 'วันที่,เวลา,ชื่อลูกค้า,สินค้า,จำนวน,ยอดรวม,ยอดชำระรวม,ช่องทางชำระ,สถานะชำระ\n';
 
       filteredOrders.forEach(order => {
         const date = new Date(order.date).toLocaleDateString('th-TH');
@@ -639,10 +609,12 @@
         });
 
         // order.orders is { item: {qty, price, total} }
+        // รวมข้อมูลการชำระ (sum) และ channels
+        const paidAmount = order.paidAmount || 0;
+        const methods = (order.payments || []).map(p => p.method).join(';');
         Object.entries(order.orders || {}).forEach(([item, detail]) => {
           const qty = detail.qty || 0;
-          const price = detail.price || '';
-          csv += `"${date}","${time}","${order.customerName}","${item}",${qty},"${order.totalAmount}"\n`;
+          csv += `"${date}","${time}","${order.customerName}","${item}",${qty},"${order.totalAmount}","${paidAmount}","${methods}","${order.paid ? 'ชำระแล้ว' : 'ค้างชำระ'}"\n`;
         });
       });
 
