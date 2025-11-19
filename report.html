@@ -416,7 +416,11 @@
     </div>
   </div>
 
+  
+
   <script>
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
+
     // ตั้งค่าวันที่เป็นวันนี้ตามค่าเริ่มต้น
     document.addEventListener('DOMContentLoaded', () => {
       const today = new Date().toISOString().split('T')[0];
@@ -424,15 +428,15 @@
       generateReport();
     });
 
-    function generateReport() {
+    async function generateReport() {
       const selectedDate = document.getElementById('reportDate').value;
       if (!selectedDate) {
         alert('กรุณาเลือกวันที่');
         return;
       }
 
-      // โหลดข้อมูล orders จาก localStorage
-      const ordersLog = JSON.parse(localStorage.getItem('ordersLog')) || [];
+      // โหลดคำสั่งซื้อจาก Google Sheet เสมอ
+      const ordersLog = await fetchOrdersFromSheet();
 
       // กรองเฉพาะวันที่เลือก (เก็บ index ต้นฉบับเพื่อแก้ไขต่อ)
       const filteredOrders = ordersLog
@@ -463,12 +467,112 @@
       displayItemsBreakdown(stats);
     }
 
+    async function fetchOrdersFromSheet() {
+  // ดึงข้อมูล JSON จาก Google Apps Script Web App (ควรคืนค่าเป็น array ของ objects)
+  try {
+    const res = await fetch(WEB_APP_URL);
+    if (!res.ok) throw new Error('Network response was not ok');
+    const rows = await res.json();
+
+    if (!Array.isArray(rows)) return [];
+
+    // helper: แปลง field orders ในรูปแบบต่าง ๆ ให้เป็น { itemName: { qty, price, total } }
+    const parseOrdersField = (raw) => {
+      if (!raw) return {};
+      if (typeof raw === 'object') {
+        // ถ้า already parsed object, try to normalize
+        const obj = {};
+        Object.entries(raw).forEach(([k, v]) => {
+          const qty = Number(v.qty || v.quantity || v.q) || 0;
+          const price = Number(v.price) || Number(v.unitPrice) || 0;
+          obj[k] = { qty, price, total: Number(v.total) || qty * price };
+        });
+        return obj;
+      }
+      // ถ้าเป็นสตริง พยายาม parse JSON ก่อน
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === 'object') return parseOrdersField(parsed);
+      } catch (e) { /* not JSON */ }
+
+      // ถ้าเป็นสตริงรูปแบบ simple เช่น "Apple:2:50;Banana:3:10"
+      const items = {};
+      const parts = raw.split(/[\n;|]/).map(p => p.trim()).filter(Boolean);
+      parts.forEach(token => {
+        // ก่อนอื่นลองรูปแบบ name:qty:price
+        const a = token.split(':').map(s => s.trim());
+        if (a.length >= 3) {
+          const name = a[0];
+          const qty = Number(a[1]) || 0;
+          const price = Number(a[2]) || 0;
+          items[name] = { qty, price, total: qty * price };
+          return;
+        }
+        // ถ้าเป็น "name x qty @price" เช่น "Apple x2 @50"
+        const m = token.match(/^(.+?)\s*x\s*(\d+)\s*@\s*(\d+(\.\d+)?)$/i);
+        if (m) {
+          const name = m[1].trim();
+          const qty = Number(m[2]) || 0;
+          const price = Number(m[3]) || 0;
+          items[name] = { qty, price, total: qty * price };
+          return;
+        }
+        // fallback: ถ้าไม่มี qty/price ให้เก็บชื่ออย่างเดียว
+        items[token] = { qty: 1, price: 0, total: 0 };
+      });
+      return items;
+    };
+
+    // แปลงแต่ละ row เป็น object ที่สคริปต์คาดหวัง
+    const orders = rows.map(r => {
+      const dateField = r.date || r.timestamp || r.createdAt || r.datetime || r.time || '';
+      const date = dateField ? new Date(dateField).toISOString() : new Date().toISOString();
+      const customerName = r.customerName || r.name || r.customer || r.buyer || 'ลูกค้าไม่ระบุ';
+      const ordersObj = parseOrdersField(r.orders || r.items || r.order_details || r.order);
+      // คำนวณ totalAmount จาก ordersObj ถ้าไม่ได้มีคอลัมน์ totalAmount
+      let totalAmount = Number(r.totalAmount || r.total || r.amount) || 0;
+      if (!totalAmount) {
+        totalAmount = Object.values(ordersObj).reduce((s, d) => s + (Number(d.total) || (Number(d.qty || 0) * Number(d.price || 0))), 0);
+      }
+      const paidAmount = Number(r.paidAmount || r.paid || 0) || 0;
+      const payments = (() => {
+        try {
+          const p = r.payments || r.payment || r.payment_history;
+          if (!p) return [];
+          if (typeof p === 'string') return JSON.parse(p);
+          if (Array.isArray(p)) return p;
+          return [p];
+        } catch (e) {
+          return [];
+        }
+      })();
+      const paid = Boolean(r.paid) || paidAmount >= totalAmount;
+
+      return {
+        date,
+        customerName,
+        orders: ordersObj,
+        totalAmount,
+        paidAmount,
+        payments,
+        paid
+      };
+    });
+
+    return orders;
+  } catch (err) {
+    alert('ดึงข้อมูลจาก Google Sheet ไม่สำเร็จ: ' + err.message);
+    return [];
+  }
+}
+
     function calculateStats(orders) {
       let totalOrders = orders.length;
       let totalRevenue = 0;
       let uniqueCustomers = new Set();
       let totalItems = 0;
       let itemsData = {};
+      let itemsPrice = {}; // เก็บราคาของแต่ละสินค้า (จากข้อมูล order)
 
       orders.forEach(order => {
         totalRevenue += order.totalAmount || 0;
@@ -482,6 +586,9 @@
             itemsData[item] = 0;
           }
           itemsData[item] += qty;
+          // ถ้ามี price ในแต่ละ order ให้เก็บ (หากมีหลายราคา จะใช้ราคาล่าสุด)
+          const price = (detail && Number.isFinite(Number(detail.price))) ? Number(detail.price) : (itemsPrice[item] || 0);
+          if (price) itemsPrice[item] = price;
         });
       });
 
@@ -490,7 +597,8 @@
         totalRevenue,
         uniqueCustomers: uniqueCustomers.size,
         totalItems,
-        itemsData
+        itemsData,
+        itemsPrice
       };
     }
 
@@ -528,7 +636,8 @@
           const paidText = `ชำระแล้ว ฿${paidAmount}`;
           paymentCell = `<td style="color:green; font-weight:bold;">${paidText}</td>`;
         } else {
-          paymentCell = `<td><button onclick="collectPayment(${order._idx})">เก็บเงิน</button></td>`;
+          // โปรเจกต์นี้ใช้ Google Sheet เป็นแหล่งข้อมูลหลัก จึงไม่บันทึกกลับหน้าเว็บโดยตรง
+          paymentCell = `<td><button disabled title="บันทึกการชำระเงินได้ที่ Google Sheet">เก็บเงิน (แก้ที่ Sheet)</button></td>`;
         }
 
         const row = `
@@ -545,38 +654,9 @@
       });
     }
 
-    // ฟังก์ชันรับเงิน/บันทึกการชำระสำหรับ order โดย index ใน ordersLog
-    function collectPayment(originalIndex) {
-      const ordersLog = JSON.parse(localStorage.getItem('ordersLog')) || [];
-      const order = ordersLog[originalIndex];
-      if (!order) { alert('ไม่พบคำสั่งซื้อนี้'); return; }
-
-      const defaultAmount = order.totalAmount - (order.paidAmount || 0);
-      const amountStr = prompt(`ใส่จำนวนเงินที่ได้รับ (คงเหลือ: ${defaultAmount}):`, defaultAmount);
-      if (amountStr === null) return; // ยกเลิก
-      const amount = parseFloat(amountStr) || 0;
-      if (amount <= 0) { alert('จำนวนเงินไม่ถูกต้อง'); return; }
-
-      const method = prompt('ช่องทางการชำระเงิน (เช่น: PromptPay, เงินสด, โอน):', 'PromptPay') || 'Unknown';
-
-      // สร้าง payment record
-      const paymentRecord = {
-        date: new Date().toISOString(),
-        amount: amount,
-        method: method
-      };
-
-      order.payments = order.payments || [];
-      order.payments.push(paymentRecord);
-      order.paidAmount = (order.paidAmount || 0) + amount;
-      order.paid = order.paid || (order.paidAmount >= (order.totalAmount || 0));
-
-      // บันทึกกลับไปที่ localStorage
-      ordersLog[originalIndex] = order;
-      localStorage.setItem('ordersLog', JSON.stringify(ordersLog));
-
-      // รีเฟรชรายงาน
-      generateReport();
+    // การบันทึกการชำระเงินต้องทำผ่าน Google Sheet (ไม่บันทึกในหน้าเว็บนี้)
+    function collectPayment() {
+      alert('ระบบนี้ดึงข้อมูลจาก Google Sheet เท่านั้น\nหากต้องการบันทึกการชำระเงิน กรุณาอัปเดตข้อมูลใน Google Sheet ของคุณ');
     }
 
     function displayItemsBreakdown(stats) {
@@ -601,10 +681,9 @@
         itemsList.innerHTML += card;
       });
 
-      // สร้างตาราง summary (อ่านราคาโดยตรงจาก stock model)
-      const stock = JSON.parse(localStorage.getItem('stockData')) || {};
+      // สร้างตาราง summary โดยใช้ราคาจาก stats.itemsPrice (ถ้าไม่มีใช้ fallback 20)
       Object.entries(stats.itemsData).forEach(([item, qty]) => {
-        const price = (stock[item] && Number.isFinite(Number(stock[item].price))) ? Number(stock[item].price) : 20;
+        const price = (stats.itemsPrice && Number.isFinite(Number(stats.itemsPrice[item]))) ? Number(stats.itemsPrice[item]) : 20;
         const total = price * qty;
         const row = `
           <tr>
@@ -618,22 +697,13 @@
     }
 
     function extractPrice(itemName) {
-      // อ่านราคาจาก stock-data model ใน localStorage (format: { name: { price, qty } })
-      try {
-        const stock = JSON.parse(localStorage.getItem('stockData')) || {};
-        if (stock[itemName] && Number.isFinite(Number(stock[itemName].price))) {
-          return Number(stock[itemName].price);
-        }
-      } catch (e) {
-        console.warn('Cannot read stockData in extractPrice', e);
-      }
-      // fallback
+      // ไม่ใช้ localStorage อีกต่อไป — หากต้องการราคาจากแหล่งอื่น ให้แก้ fetchOrdersFromSheet ให้ส่งมา
       return 20;
     }
 
-    function exportToCSV() {
+    async function exportToCSV() {
       const selectedDate = document.getElementById('reportDate').value;
-      const ordersLog = JSON.parse(localStorage.getItem('ordersLog')) || [];
+      const ordersLog = await fetchOrdersFromSheet();
 
       const filteredOrders = ordersLog.filter(order => {
         const orderDate = new Date(order.date).toISOString().split('T')[0];
