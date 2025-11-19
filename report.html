@@ -615,19 +615,20 @@
 
       orders.forEach((order, idx) => {
         const date = new Date(order.date);
-        const time = date.toLocaleTimeString('th-TH', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        });
+        const time = date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 
-        const items = Object.entries(order.orders || {})
-          .map(([item, detail]) => `${item}: ${detail.qty} ชิ้น × ฿${detail.price} = ฿${detail.total}`)
-          .join('<br>');
+        // orders may be { itemId_or_name: { name, qty, price, total } }
+        const items = Object.entries(order.orders || {}).map(([key, detail])=>{
+          const name = (detail && detail.name) ? detail.name : key;
+          const qty = (detail && detail.qty) ? detail.qty : 0;
+          const price = (detail && detail.price) ? detail.price : 0;
+          const total = (detail && detail.total) ? detail.total : (qty * price);
+          return `${name}: ${qty} ชิ้น × ฿${price} = ฿${total}`;
+        }).join('<br>');
 
         const totalQty = Object.values(order.orders || {})
           .reduce((sum, detail) => sum + (detail.qty || 0), 0);
 
-        // Payment column: show paid badge or เก็บเงิน button
         let paymentCell = '';
         const paidAmount = order.paidAmount || 0;
         const isPaid = order.paid || (paidAmount >= (order.totalAmount || 0));
@@ -635,7 +636,10 @@
           const paidText = `ชำระแล้ว ฿${paidAmount}`;
           paymentCell = `<td style="color:green; font-weight:bold;">${paidText}</td>`;
         } else {
-          paymentCell = `<td><button onclick="collectPayment('${order.orderId}')">เก็บเงิน</button></td>`;
+          // prepare args: pass orderId or rowNumber
+          const orderIdArg = order.orderId ? `'${String(order.orderId).replace(/'/g, "\\'")}'` : 'null';
+          const rowNumberArg = order.rowNumber ? order.rowNumber : 'null';
+          paymentCell = `<td><button onclick="collectPayment(${orderIdArg}, ${rowNumberArg})">เก็บเงิน</button></td>`;
         }
 
         const row = `
@@ -652,41 +656,54 @@
       });
     }
 
-    async function updatePaymentStatus(orderId, paidAmount, paymentMethod) {
-      try {
-        // send as application/x-www-form-urlencoded (no custom headers) to avoid preflight
-        const params = new URLSearchParams();
-        params.append('orderId', orderId);
-        params.append('paidAmount', String(paidAmount));
-        params.append('paymentMethod', paymentMethod);
-
-        const response = await fetch(WEB_APP_URL, {
-          method: 'POST',
-          body: params
-        });
-
-        if (!response.ok) throw new Error('Failed to update payment status (network)');
-        const result = await response.json().catch(()=>({ success: false, message: 'invalid-json' }));
-        if (result && result.success) {
-          alert('สถานะการชำระเงินอัปเดตสำเร็จ');
-          generateReport();
-        } else {
-          alert('อัปเดตสถานะการชำระเงินไม่สำเร็จ: ' + (result.message || 'unknown'));
-        }
-      } catch (err) {
-        alert('เกิดข้อผิดพลาดในการอัปเดตสถานะการชำระเงิน: ' + err.message);
-      }
-    }
-
     function collectPayment(orderId) {
       const paidAmount = prompt('กรุณาใส่จำนวนเงินที่ชำระแล้ว:');
       if (!paidAmount || isNaN(paidAmount) || Number(paidAmount) <= 0) {
         alert('จำนวนเงินไม่ถูกต้อง');
         return;
       }
+
       const paymentMethod = prompt('กรุณาใส่ช่องทางการชำระเงิน (เช่น PromptPay, เงินสด):', 'PromptPay');
-      if (!paymentMethod) { alert('กรุณาระบุช่องทางการชำระเงิน'); return; }
-      updatePaymentStatus(orderId, Number(paidAmount), paymentMethod);
+      if (!paymentMethod) {
+        alert('กรุณาระบุช่องทางการชำระเงิน');
+        return;
+      }
+
+      if (!orderId) {
+        alert('ไม่พบข้อมูล orderId');
+        return;
+      }
+
+      const params = {
+        orderId: orderId,
+        paidAmount: Number(paidAmount),
+        paymentMethod
+      };
+
+      updatePaymentStatus(params).then(result => {
+        if (result.success) {
+          alert('สถานะการชำระเงินอัปเดตสำเร็จ');
+          generateReport();
+        } else {
+          alert('อัปเดตสถานะการชำระเงินไม่สำเร็จ: ' + (result.message || 'unknown'));
+        }
+      });
+    }
+
+    async function updatePaymentStatus(params) {
+      try {
+        const body = new URLSearchParams();
+        body.append('orderId', params.orderId);
+        body.append('paidAmount', String(params.paidAmount));
+        body.append('paymentMethod', params.paymentMethod);
+
+        const response = await fetch(WEB_APP_URL, { method: 'POST', body });
+        if (!response.ok) throw new Error('Network error');
+        const result = await response.json().catch(() => ({ success: false, message: 'Invalid JSON response' }));
+        return result;
+      } catch (err) {
+        return { success: false, message: err.message };
+      }
     }
 
     function displayItemsBreakdown(stats) {

@@ -293,7 +293,6 @@
   </div>
 
   <script>
-  // fallback submit handler that posts form as application/x-www-form-urlencoded (avoids preflight)
   (function(){
     const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
     const form = document.getElementById('orderForm');
@@ -303,30 +302,108 @@
       const statusEl = document.getElementById('status');
       statusEl.className = 'loading show';
       statusEl.textContent = 'กำลังส่งคำสั่งซื้อ...';
+
+      // build params
+      const fd = new FormData(form);
+      fd.append('timestamp', new Date().toISOString());
+      const params = new URLSearchParams();
+      for (const [k,v] of fd.entries()) params.append(k, v);
+
+      // try fetch with short timeout
       try {
-        const fd = new FormData(form);
-        // convert to URLSearchParams
-        const params = new URLSearchParams();
-        for (const [k,v] of fd.entries()) params.append(k, v);
-        // include timestamp
-        params.append('timestamp', new Date().toISOString());
-        const resp = await fetch(WEB_APP_URL, { method: 'POST', body: params });
-        if (!resp.ok) throw new Error('network');
-        const data = await resp.json().catch(()=>({ success:false, message:'invalid-json' }));
+        const controller = new AbortController();
+        const timeout = setTimeout(()=>controller.abort(), 8000);
+        const resp = await fetch(WEB_APP_URL, { method: 'POST', body: params, signal: controller.signal });
+        clearTimeout(timeout);
+
+        if (!resp.ok) throw new Error('Network response not OK: ' + resp.status);
+        const data = await resp.json().catch(()=>null);
         if (data && data.success) {
           statusEl.className = 'success show';
           statusEl.textContent = 'สั่งซื้อสำเร็จ';
           form.reset();
-        } else {
-          statusEl.className = 'error show';
-          statusEl.textContent = 'สั่งซื้อล้มเหลว: ' + (data.message || 'unknown');
+          return;
         }
-      } catch (err) {
+        // server returned non-success or invalid JSON -> fallback to form submit
         statusEl.className = 'error show';
-        statusEl.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+        statusEl.textContent = 'เซิร์ฟเวอร์ตอบกลับผิดพลาด — เปิดแท็บใหม่แสดงผล...';
+      } catch (err) {
+        // fetch failed (network/CORS/timeout) -> fallback
+        statusEl.className = 'error show';
+        statusEl.textContent = 'ไม่สามารถส่งผ่าน AJAX (' + (err.name || err.message) + '), จะเปิดแท็บใหม่เพื่อส่งแทน...';
+      }
+
+      // Fallback: submit a real form to WEB_APP_URL in a new tab (bypass AJAX/CORS issues)
+      try {
+        const fallbackForm = document.createElement('form');
+        fallbackForm.method = 'POST';
+        fallbackForm.action = WEB_APP_URL;
+        fallbackForm.target = '_blank';
+        // copy params into hidden inputs
+        for (const [k,v] of params.entries()) {
+          const inp = document.createElement('input');
+          inp.type = 'hidden';
+          inp.name = k;
+          inp.value = v;
+          fallbackForm.appendChild(inp);
+        }
+        document.body.appendChild(fallbackForm);
+        fallbackForm.submit();
+        setTimeout(()=>fallbackForm.remove(), 2000);
+      } catch (e) {
+        statusEl.className = 'error show';
+        statusEl.textContent = 'ส่งคำสั่งซื้อไม่สำเร็จ โปรดเช็คการตั้งค่า Web App หรือส่งด้วย Postman: ' + (e.message || e);
       }
     });
   })();
+
+  function generateOrderId() {
+    const timestamp = Date.now().toString(36).toUpperCase(); // สร้าง timestamp แบบ base36
+    const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase(); // สร้างตัวเลขสุ่ม
+    return `ORD-${timestamp}-${randomPart}`;
+  }
+
+  function placeOrder() {
+    const orderId = generateOrderId(); // สร้าง orderId
+    const customerName = document.getElementById('customerName').value;
+    const items = collectOrderItems(); // ฟังก์ชันที่รวบรวมรายการสินค้า
+    const totalAmount = calculateTotal(items); // ฟังก์ชันที่คำนวณยอดรวม
+
+    if (!customerName || items.length === 0) {
+      alert('กรุณากรอกชื่อลูกค้าและเลือกสินค้า');
+      return;
+    }
+
+    const orderData = {
+      orderId,
+      customerName,
+      items,
+      totalAmount,
+      date: new Date().toISOString()
+    };
+
+    sendOrderToServer(orderData).then(response => {
+      if (response.success) {
+        alert(`สั่งซื้อสำเร็จ! หมายเลขคำสั่งซื้อ: ${orderId}`);
+        resetOrderForm(); // รีเซ็ตฟอร์มหลังสั่งซื้อสำเร็จ
+      } else {
+        alert(`เกิดข้อผิดพลาด: ${response.message}`);
+      }
+    });
+  }
+
+  async function sendOrderToServer(orderData) {
+    try {
+      const response = await fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
   </script>
 </body>
 </html>
