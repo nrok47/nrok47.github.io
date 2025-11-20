@@ -1,6 +1,0 @@
-itemId,name,price,qty,sku,category,supplier,reorderLevel,lastUpdated,active
-ITM-001,Apple (Red),50,120,APL-RED,fruit,Local Farm,10,2025-11-19T08:00:00Z,TRUE
-ITM-002,Banana,10,200,BAN-001,fruit,Local Farm,20,2025-11-18T12:30:00Z,TRUE
-ITM-003,Milk 1L,35,50,MILK-1L,dairy,DairyCo,5,2025-11-17T09:00:00Z,TRUE
-ITM-004,Cookie Pack,20,80,CKP-01,snack,Bakery Ltd,15,2025-11-16T14:20:00Z,TRUE
-ITM-005,Orange Juice 500ml,45,30,OJC-500,drink,Juice Inc,8,2025-11-15T10:10:00Z,TRUE

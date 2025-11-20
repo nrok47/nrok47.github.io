@@ -5,77 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>รายงานสั่งซื้อ</title>
   <link rel="stylesheet" href="css/site.css">
-  <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #f7f7f7; margin: 0; }
-    .container { max-width: 480px; margin: 24px auto; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 24px; }
-    h1 { font-size: 1.4rem; margin-bottom: 8px; text-align: center; }
-    .filter { margin-bottom: 12px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-    th, td { padding: 8px 4px; text-align: left; }
-    th { background: #e3e7ff; font-size: 0.95rem; }
-    .btn { padding: 6px 12px; background: #667eea; color: #fff; border: none; border-radius: 6px; font-size: 0.95rem; cursor: pointer; }
-    .paid { color: #2e7d32; font-weight: bold; }
-    .unpaid { color: #c62828; font-weight: bold; }
-    #status { margin: 12px 0; text-align: center; font-size: 1rem; }
-    @media (max-width: 500px) { .container { padding: 8px; } th, td { font-size: 0.95rem; } }
-  </style>
 </head>
 <body>
   <div id="site-menu"></div>
   <script src="scripts/load-menu.js" defer></script>
   <div class="container">
     <h1>📋 รายงานสั่งซื้อ</h1>
-    <div class="filter">
-      <input type="text" id="filterName" placeholder="ค้นหาชื่อผู้สั่ง..." class="input--wide-60 input--padded">
-      <button class="btn" onclick="loadOrders()">รีเฟรช</button>
-    </div>
-    <table>
-      <thead>
-        <tr><th>วันที่</th><th>ชื่อผู้สั่ง</th><th>สินค้า</th><th>ยอดเงิน</th><th>สถานะ</th><th>เก็บเงิน</th></tr>
-      </thead>
-      <tbody id="ordersTable"></tbody>
-    </table>
-    <div id="status"></div>
+    <!-- Content here -->
   </div>
-  <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
-    let orders = [];
-    async function loadOrders() {
-      const res = await fetch(SCRIPT_URL);
-      orders = await res.json();
-      renderOrders();
-    }
-    function renderOrders() {
-      const filter = document.getElementById('filterName').value.trim().toLowerCase();
-      const table = document.getElementById('ordersTable');
-      table.innerHTML = '';
-      orders.filter(o => !filter || o.customerName.toLowerCase().includes(filter)).forEach(order => {
-        const items = Object.values(order.orders||{}).map(i => `${i.name||''} x${i.qty||0}`).join(', ');
-        const paid = order.paid ? 'จ่ายแล้ว' : 'ยังไม่จ่าย';
-        const paidClass = order.paid ? 'paid' : 'unpaid';
-        const payBtn = order.paid ? '' : `<button class='btn' onclick='payOrder("${order.orderId}",${order.rowNumber},${order.totalAmount})'>เก็บเงิน</button>`;
-        table.innerHTML += `<tr><td>${order.date.split('T')[0]}</td><td>${order.customerName}</td><td>${items}</td><td>${order.totalAmount}</td><td class='${paidClass}'>${paid}</td><td>${payBtn}</td></tr>`;
-      });
-    }
-    async function payOrder(orderId,rowNumber,totalAmount) {
-      const method = prompt('เลือกวิธีรับเงิน: 1.QR code 2.พร้อมเพย์ 3.เงินสด');
-      if(!method) return;
-      const status = document.getElementById('status');
-      status.textContent = 'กำลังบันทึก...';
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, rowNumber, paidAmount: totalAmount, paymentMethod: method })
-      });
-      const result = await res.json();
-      if(result.success) {
-        status.textContent = '✅ เก็บเงินสำเร็จ';
-        loadOrders();
-      } else {
-        status.textContent = '❌ ' + (result.message || 'เกิดข้อผิดพลาด');
-      }
-    }
-    loadOrders();
-  </script>
 </body>
 </html>

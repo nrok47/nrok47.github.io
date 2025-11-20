@@ -1,4 +1,0 @@
-orderId,date,customerName,orders,totalAmount,paidAmount,payments,paid
-ORD-001,2025-11-19T09:15:00Z,Test1,"{""ITM-001"":{""name"":""Apple (Red)"",""qty"":2,""price"":50,""total"":100},""ITM-002"":{""name"":""Banana"",""qty"":3,""price"":10,""total"":30}}",130,0,"[]",FALSE
-ORD-002,2025-11-19T10:30:00Z,Jane Smith,"{""ITM-003"":{""name"":""Milk 1L"",""qty"":1,""price"":35,""total"":35}}",35,35,"[{""date"":""2025-11-19T10:35:00Z"",""amount"":35,""method"":""PromptPay""}]",TRUE
-ORD-003,2025-11-19T11:45:00Z,Michael B.,"{""ITM-004"":{""name"":""Cookie Pack"",""qty"":2,""price"":20,""total"":40},""ITM-005"":{""name"":""Orange Juice 500ml"",""qty"":1,""price"":45,""total"":45}}",85,50,"[{""date"":""2025-11-19T12:00:00Z"",""amount"":50,""method"":""Cash""}]",FALSE
