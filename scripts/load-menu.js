@@ -8,7 +8,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     container.innerHTML = html;
   } catch (err) {
     console.error('Failed loading menu:', err);
-    // fallback: simple inline links
-    container.innerHTML = '<div style="padding:8px;background:#fff;border-bottom:1px solid #eee;"></div>';
+    // fallback: class-based markup (no inline styles)
+    container.innerHTML = '<nav id="site-nav" class="site-nav">'
+      + '<div class="site-nav-inner">'
+      + '<a href="index.html" class="site-nav-brand">🏠 หน้าแรก</a>'
+      + '<a href="order.html">🛍️ สั่งซื้อ</a>'
+      + '<a href="seller.html">📦 สต็อก</a>'
+      + '<a href="report.html">📋 รายงาน</a>'
+      + '<a href="simple-shop/index.html" class="site-nav-shop">🛒 Shop</a>'
+      + '</div></nav>';
   }
 });

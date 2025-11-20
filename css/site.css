@@ -1,0 +1,28 @@
+/* Shared site styles (menu + small helpers) */
+#site-nav.site-nav {
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  padding: 8px 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}
+.site-nav-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.site-nav-inner a {
+  text-decoration: none;
+  color: #333;
+}
+.site-nav-brand {
+  font-weight: 700;
+  margin-right: 12px;
+}
+.site-nav-shop {
+  margin-left: auto;
+}
+
+/* small utility */
+.visually-hidden { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px,1px,1px,1px); white-space: nowrap; }
