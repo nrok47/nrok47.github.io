@@ -3,19 +3,18 @@
 // Web App: Deploy as 'Anyone, even anonymous'
 
 function doGet(e) {
-  if (e && e.parameter && e.parameter._cors) {
-    return ContentService.createTextOutput('')
-      .setMimeType(ContentService.MimeType.JSON);
-  }
   const type = (e && e.parameter && e.parameter.type) ? String(e.parameter.type).toLowerCase() : '';
-  let response;
-  if (type === 'getseller') {
-    response = JSON.stringify(getSeller_());
-  } else {
-    response = JSON.stringify(getOrders_());
+  // Handle payment update via GET
+  if (e && e.parameter && e.parameter.orderId && e.parameter.paidAmount && e.parameter.paymentMethod) {
+    return ContentService.createTextOutput(
+      JSON.stringify(updatePayment_(e.parameter))
+    ).setMimeType(ContentService.MimeType.JSON);
   }
-  return ContentService.createTextOutput(response)
-    .setMimeType(ContentService.MimeType.JSON);
+  if (type === 'getseller') {
+    return ContentService.createTextOutput(JSON.stringify(getSeller_())).setMimeType(ContentService.MimeType.JSON);
+  }
+  // default: getOrders
+  return ContentService.createTextOutput(JSON.stringify(getOrders_())).setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
