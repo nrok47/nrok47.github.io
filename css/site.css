@@ -26,3 +26,9 @@
 
 /* small utility */
 .visually-hidden { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px,1px,1px,1px); white-space: nowrap; }
+
+/* Inputs used on multiple pages */
+.input--wide-70 { width: 70%; }
+.input--wide-60 { width: 60%; }
+.input--padded { padding: 6px; }
+
