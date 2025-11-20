@@ -149,7 +149,7 @@ async function submitOrder(name, orders) {
     }
 }
 
-// ====== ฟังก์ชันโหลดออเดอร์ทั้งหมด (สำหรับ report.html) ======
+// ====== ฟังก์ชันโฮลดออเดอร์ทั้งหมด (สำหรับ index.html) ======
 async function getOrders() {
     try {
         const res = await fetch(SCRIPT_URL + "?type=getOrders");
@@ -166,7 +166,7 @@ async function getOrders() {
     }
 }
 
-// ====== ฟังก์ชันอัปเดตสถานะการจ่ายเงิน (สำหรับ report.html) ======
+// ====== ฟังก์ชันอัปเดตสถานะการจ่ายเงิน (สำหรับ index.html) ======
 async function setPaid(orderId, paidAmount, paymentMethod) {
     try {
         const payload = {

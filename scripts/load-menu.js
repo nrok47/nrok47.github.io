@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       + '<a href="index.html" class="site-nav-brand">🏠 หน้าแรก</a>'
       + '<a href="order.html">🛍️ สั่งซื้อ</a>'
       + '<a href="seller.html">📦 สต็อก</a>'
-      + '<a href="report.html">📋 รายงาน</a>'
+      + '<a href="index.html">📋 รายงาน</a>'
       + '<a href="simple-shop/index.html" class="site-nav-shop">🛒 Shop</a>'
       + '</div></nav>';
   }
