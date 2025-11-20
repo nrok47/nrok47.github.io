@@ -3,63 +3,72 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ตั้งค่าสินค้า - ผู้ขาย</title>
-  <script src="script.js" defer></script>
+  <title>ตั้งค่าสินค้าในสต็อก</title>
   <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Segoe UI, Tahoma, Geneva, Verdana, sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
-    .container{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:500px;width:100%;padding:40px}
-    .header{text-align:center;margin-bottom:20px}
-    .header h1{font-size:28px;color:#333;margin-bottom:8px}
-    .header p{color:#666;font-size:14px}
-    .badge{display:inline-block;background:#667eea;color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-top:8px}
-    .form-group{margin-bottom:20px;display:flex;align-items:center;gap:10px}
-    .form-group label{flex:1;font-size:14px;color:#444;font-weight:500}
-    .form-group input{width:80px;padding:8px 12px;border:2px solid #e0e0e0;border-radius:6px;font-size:14px;font-weight:700;text-align:center}
-    .unit{font-size:12px;color:#999;min-width:40px}
-    button{width:100%;padding:12px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer}
-    #status{margin-top:20px;padding:12px;border-radius:8px;text-align:center;display:none}
-    #status.show{display:block}
-    #status.success{background:#e8f5e9;color:#2e7d32;border-left:4px solid #4caf50}
-    .footer{text-align:center;margin-top:24px;padding-top:20px;border-top:1px solid #e0e0e0}
-    .footer a{color:#667eea;text-decoration:none;font-weight:700}
+    body { font-family: 'Segoe UI', sans-serif; background: #f7f7f7; margin: 0; }
+    .container { max-width: 420px; margin: 24px auto; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 24px; }
+    h1 { font-size: 1.4rem; margin-bottom: 8px; text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    th, td { padding: 8px 4px; text-align: left; }
+    th { background: #e3e7ff; font-size: 0.95rem; }
+    td input[type=number] { width: 60px; padding: 4px; font-size: 1rem; border-radius: 6px; border: 1px solid #ccc; }
+    .btn { width: 100%; padding: 12px; background: linear-gradient(90deg,#667eea,#764ba2); color: #fff; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 8px; }
+    #status { margin: 12px 0; text-align: center; font-size: 1rem; }
+    @media (max-width: 500px) { .container { padding: 8px; } th, td { font-size: 0.95rem; } }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>🛍️ ตั้งค่าสินค้าในสต็อก</h1>
-      <p>จัดการสินค้าและจำนวนคงคลัง</p>
-      <span class="badge">ผู้ขาย</span>
-    </div>
-
+    <h1>🛒 ตั้งค่าสินค้าในสต็อก</h1>
     <form id="stockForm">
-      <table id="seller-table" style="width:100%;margin-bottom:20px;border-collapse:collapse">
+      <table>
         <thead>
-          <tr style="background:#f5f5f5">
-            <th>รหัสสินค้า</th>
-            <th>ชื่อสินค้า</th>
-            <th>ราคา</th>
-            <th>จำนวนคงคลัง</th>
-          </tr>
+          <tr><th>รหัส</th><th>ชื่อสินค้า</th><th>ราคา</th><th>คงคลัง</th></tr>
         </thead>
-        <tbody>
-          <!-- Rows will be rendered by script.js -->
-        </tbody>
+        <tbody id="sellerTable"></tbody>
       </table>
-      <button type="submit">💾 บันทึกสต็อก</button>
+      <button type="submit" class="btn">บันทึกสต็อก</button>
     </form>
-
     <div id="status"></div>
-
-    <div class="footer">
-      <a href="order.html">ไปหน้าสั่งสินค้า (พิมพ์จำนวน)</a>
-      &nbsp;|&nbsp;
-      <a href="order_v2.html">สั่งสินค้า (กด +1)</a>
-      &nbsp;|&nbsp;
-      <a href="report.html">ดูรายงานสั่งซื้อ</a>
-    </div>
   </div>
-  <!-- All logic now handled by script.js -->
+  <script>
+    // Config
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
+    // Load seller data
+    async function loadSeller() {
+      const res = await fetch(SCRIPT_URL + '?type=getSeller');
+      const items = await res.json();
+      const table = document.getElementById('sellerTable');
+      table.innerHTML = '';
+      items.slice(0,5).forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${item.itemId}</td><td>${item.name}</td><td>${item.price}</td><td><input type='number' min='0' value='${item.stock||item.reorderLevel||0}' data-id='${item.itemId}'></td>`;
+        table.appendChild(tr);
+      });
+    }
+    // Save stock
+    document.getElementById('stockForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const status = document.getElementById('status');
+      status.textContent = 'กำลังบันทึก...';
+      const stock = {};
+      document.querySelectorAll('#sellerTable input').forEach(input => {
+        stock[input.dataset.id] = input.value;
+      });
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'updateStock', stock })
+      });
+      const result = await res.json();
+      if(result.success) {
+        status.textContent = '✅ บันทึกสำเร็จ';
+        loadSeller();
+      } else {
+        status.textContent = '❌ ' + (result.message || 'เกิดข้อผิดพลาด');
+      }
+    });
+    loadSeller();
+  </script>
 </body>
 </html>
