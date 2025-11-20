@@ -27,13 +27,10 @@
   </div>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec'; // Use your actual web app URL here
-
-    async function fetchData() {
+    // Use google.script.run to call server-side functions in Apps Script
+    function fetchData() {
       try {
-        const response = await fetch(SCRIPT_URL);
-        const data = await response.json();
-        populateTable(data);
+        google.script.run.withSuccessHandler(populateTable).apiGetOrders();
       } catch (error) {
         console.error('Error fetching data:', error);
       }
@@ -97,34 +94,20 @@
 
         button.addEventListener('click', async () => {
           document.body.removeChild(modal);
-          try {
-            const response = await fetch(SCRIPT_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderId, paidAmount: totalAmount, paymentMethod: method })
-            });
-            let result;
-            if (response.ok) {
-              try {
-                result = await response.json();
-              } catch (jsonErr) {
-                alert('Payment failed: Invalid JSON response');
-                return;
-              }
-              if (result.success) {
-                alert('Payment successful!');
-                fetchData();
-              } else {
-                alert('Payment failed: ' + (result.message || 'Unknown error'));
-              }
-            } else {
-              const text = await response.text();
-              alert('Payment failed: ' + response.status + ' ' + text);
+            try {
+              // call server function via google.script.run
+              google.script.run.withSuccessHandler(function(result) {
+                if (result && result.success) {
+                  alert('Payment successful!');
+                  fetchData();
+                } else {
+                  alert('Payment failed: ' + (result && result.message ? result.message : 'Unknown error'));
+                }
+              }).apiUpdatePayment({ orderId: orderId, paidAmount: totalAmount, paymentMethod: method });
+            } catch (error) {
+              alert('Payment failed: ' + error.message);
+              console.error('Error processing payment:', error);
             }
-          } catch (error) {
-            alert('Payment failed: ' + error.message);
-            console.error('Error processing payment:', error);
-          }
         });
 
         listItem.appendChild(button);

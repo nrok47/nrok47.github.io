@@ -2,6 +2,8 @@
 // Sheet: 'seller', 'orderz'
 // Web App: Deploy as 'Anyone, even anonymous'
 
+const SCRIPT_URL = 'https://script.googleusercontent.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
+//https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec
 function doGet(e) {
   const type = (e && e.parameter && e.parameter.type) ? String(e.parameter.type).toLowerCase() : '';
   // Handle payment update via GET
@@ -176,4 +178,97 @@ function updatePayment_(payload) {
 
 function safeParseJSON_(v) {
   try { return JSON.parse(v); } catch { return null; }
+}
+
+// API wrappers for HtmlService (google.script.run) - return plain JS objects
+function apiGetOrders() {
+  return getOrders_();
+}
+
+function apiGetSeller() {
+  return getSeller_();
+}
+
+function apiCreateOrder(payload) {
+  try {
+    // reuse createOrder_ logic but return plain object
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('orderz');
+    if (!sheet) throw new Error("Sheet 'orderz' not found");
+    const data = sheet.getDataRange().getValues();
+    const headers = data.length ? data[0].map(h => String(h || '').trim()) : [];
+    const idxMap = {};
+    headers.forEach((h,i)=> idxMap[h]=i);
+    const orderId = 'ORD-' + Date.now().toString(36).toUpperCase();
+    const date = new Date().toISOString();
+    const customerName = payload.customerName || 'ลูกค้าไม่ระบุ';
+    const orders = JSON.stringify(payload.orders);
+    const totalAmount = Number(payload.totalAmount || 0);
+    const paidAmount = 0;
+    const payments = '[]';
+    const paid = 'FALSE';
+    const row = new Array(headers.length).fill('');
+    row[idxMap['orderId']] = orderId;
+    row[idxMap['date']] = date;
+    row[idxMap['customerName']] = customerName;
+    row[idxMap['orders']] = orders;
+    row[idxMap['totalAmount']] = totalAmount;
+    row[idxMap['paidAmount']] = paidAmount;
+    row[idxMap['payments']] = payments;
+    row[idxMap['paid']] = paid;
+    sheet.appendRow(row);
+    return { success: true, orderId };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+function apiUpdatePayment(payload) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('orderz');
+    if (!sheet) throw new Error("Sheet 'orderz' not found");
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0].map(h => String(h || '').trim());
+    const orderIdIdx = headers.indexOf('orderId');
+    const paidAmountIdx = headers.indexOf('paidAmount');
+    const paymentsIdx = headers.indexOf('payments');
+    const paidIdx = headers.indexOf('paid');
+    const totalAmountIdx = headers.indexOf('totalAmount');
+    let rowIdx = data.findIndex((row, i) => i > 0 && String(row[orderIdIdx]) === String(payload.orderId));
+    if (rowIdx === -1 && payload.rowNumber) rowIdx = Number(payload.rowNumber) - 1;
+    if (rowIdx <= 0) throw new Error('Order not found');
+    const currentPaid = Number(data[rowIdx][paidAmountIdx]) || 0;
+    const newPaid = currentPaid + Number(payload.paidAmount);
+    let payments = safeParseJSON_(data[rowIdx][paymentsIdx]) || [];
+    payments.push({ date: new Date().toISOString(), amount: Number(payload.paidAmount), method: payload.paymentMethod });
+    sheet.getRange(rowIdx + 1, paidAmountIdx + 1).setValue(newPaid);
+    sheet.getRange(rowIdx + 1, paymentsIdx + 1).setValue(JSON.stringify(payments));
+    const totalAmount = Number(data[rowIdx][totalAmountIdx]) || 0;
+    sheet.getRange(rowIdx + 1, paidIdx + 1).setValue(newPaid >= totalAmount ? 'TRUE' : 'FALSE');
+    return { success: true };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+function apiUpdateStock(stock) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('seller');
+    if (!sheet) throw new Error("Sheet 'seller' not found");
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0].map(h => String(h || '').trim());
+    const idIdx = headers.indexOf('itemId');
+    const stockIdx = headers.indexOf('stock') !== -1 ? headers.indexOf('stock') : headers.indexOf('reorderLevel');
+    if (idIdx === -1 || stockIdx === -1) throw new Error('itemId or stock column not found');
+    let updated = 0;
+    Object.entries(stock).forEach(([itemId, qty]) => {
+      const rowIdx = data.findIndex((row, i) => i > 0 && String(row[idIdx]) === String(itemId));
+      if (rowIdx > 0) {
+        sheet.getRange(rowIdx + 1, stockIdx + 1).setValue(Number(qty));
+        updated++;
+      }
+    });
+    return { success: true, updated };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
 }

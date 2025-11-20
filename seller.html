@@ -35,19 +35,17 @@
     <div id="status"></div>
   </div>
   <script>
-    // Config
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
-    // Load seller data
-    async function loadSeller() {
-      const res = await fetch(SCRIPT_URL + '?type=getSeller');
-      const items = await res.json();
-      const table = document.getElementById('sellerTable');
-      table.innerHTML = '';
-      items.slice(0,5).forEach(item => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${item.itemId}</td><td>${item.name}</td><td>${item.price}</td><td><input type='number' min='0' value='${item.stock||item.reorderLevel||0}' data-id='${item.itemId}'></td>`;
-        table.appendChild(tr);
-      });
+    // Load seller data via google.script.run
+    function loadSeller() {
+      google.script.run.withSuccessHandler(function(items){
+        const table = document.getElementById('sellerTable');
+        table.innerHTML = '';
+        (items||[]).slice(0,5).forEach(item => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${item.itemId}</td><td>${item.name}</td><td>${item.price}</td><td><input type='number' min='0' value='${item.stock||item.reorderLevel||0}' data-id='${item.itemId}'></td>`;
+          table.appendChild(tr);
+        });
+      }).apiGetSeller();
     }
     // Save stock
     document.getElementById('stockForm').addEventListener('submit', async e => {
@@ -58,18 +56,14 @@
       document.querySelectorAll('#sellerTable input').forEach(input => {
         stock[input.dataset.id] = input.value;
       });
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'updateStock', stock })
-      });
-      const result = await res.json();
-      if(result.success) {
-        status.textContent = '✅ บันทึกสำเร็จ';
-        loadSeller();
-      } else {
-        status.textContent = '❌ ' + (result.message || 'เกิดข้อผิดพลาด');
-      }
+      google.script.run.withSuccessHandler(function(result){
+        if (result && result.success) {
+          status.textContent = '✅ บันทึกสำเร็จ';
+          loadSeller();
+        } else {
+          status.textContent = '❌ ' + (result && result.message ? result.message : 'เกิดข้อผิดพลาด');
+        }
+      }).apiUpdateStock(stock);
     });
     loadSeller();
   </script>

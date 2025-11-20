@@ -38,18 +38,18 @@
     <div id="status"></div>
   </div>
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
     let items = [];
-    async function loadSeller() {
-      const res = await fetch(SCRIPT_URL + '?type=getSeller');
-      items = await res.json();
-      const table = document.getElementById('orderTable');
-      table.innerHTML = '';
-      items.slice(0,5).forEach(item => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${item.itemId}</td><td>${item.name}</td><td>${item.price}</td><td><input type='number' min='0' value='0' data-id='${item.itemId}' data-price='${item.price}'></td>`;
-        table.appendChild(tr);
-      });
+    function loadSeller() {
+      google.script.run.withSuccessHandler(function(itemsRes) {
+        items = itemsRes || [];
+        const table = document.getElementById('orderTable');
+        table.innerHTML = '';
+        items.slice(0,5).forEach(item => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${item.itemId}</td><td>${item.name}</td><td>${item.price}</td><td><input type='number' min='0' value='0' data-id='${item.itemId}' data-price='${item.price}'></td>`;
+          table.appendChild(tr);
+        });
+      }).apiGetSeller();
     }
     function calcTotal() {
       let total = 0;
@@ -72,19 +72,15 @@
       });
       if(Object.keys(orders).length===0) { status.textContent = '❌ กรุณาเลือกสินค้า'; return; }
       const totalAmount = calcTotal();
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerName, orders, totalAmount })
-      });
-      const result = await res.json();
-      if(result.success) {
-        status.textContent = '✅ สั่งซื้อสำเร็จ';
-        document.getElementById('orderForm').reset();
-        calcTotal();
-      } else {
-        status.textContent = '❌ ' + (result.message || 'เกิดข้อผิดพลาด');
-      }
+      google.script.run.withSuccessHandler(function(result) {
+        if (result && result.success) {
+          status.textContent = '✅ สั่งซื้อสำเร็จ';
+          document.getElementById('orderForm').reset();
+          calcTotal();
+        } else {
+          status.textContent = '❌ ' + (result && result.message ? result.message : 'เกิดข้อผิดพลาด');
+        }
+      }).apiCreateOrder({ customerName, orders, totalAmount });
     });
     loadSeller();
     calcTotal();
