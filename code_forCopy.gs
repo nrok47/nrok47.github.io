@@ -1,4 +1,4 @@
-// Google Apps Script สำหรับโปรเจคขายของ (seller/order/report)
+// Google Apps Script สำหรับโปรเจคขายของ (seller/order/index)
 // Sheet: 'seller', 'orderz'
 // Web App: Deploy as 'Anyone, even anonymous'
 
