@@ -3,20 +3,23 @@
 // Web App: Deploy as 'Anyone, even anonymous'
 
 const SCRIPT_URL = 'https://script.googleusercontent.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec';
-//https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec
+
+// Serve HTML templates. Use ?page=order or ?page=seller to open other pages.
 function doGet(e) {
-  const type = (e && e.parameter && e.parameter.type) ? String(e.parameter.type).toLowerCase() : '';
-  // Handle payment update via GET
-  if (e && e.parameter && e.parameter.orderId && e.parameter.paidAmount && e.parameter.paymentMethod) {
-    return ContentService.createTextOutput(
-      JSON.stringify(updatePayment_(e.parameter))
-    ).setMimeType(ContentService.MimeType.JSON);
+  var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : 'index';
+  try {
+    var tpl = HtmlService.createTemplateFromFile(page);
+    return tpl.evaluate().setTitle('รายงานสั่งซื้อ').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (err) {
+    // fallback to index if template not found
+    var tpl = HtmlService.createTemplateFromFile('index');
+    return tpl.evaluate().setTitle('รายงานสั่งซื้อ').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
-  if (type === 'getseller') {
-    return ContentService.createTextOutput(JSON.stringify(getSeller_())).setMimeType(ContentService.MimeType.JSON);
-  }
-  // default: getOrders
-  return ContentService.createTextOutput(JSON.stringify(getOrders_())).setMimeType(ContentService.MimeType.JSON);
+}
+
+// include helper for server-side includes: <?!= include('menu') ?>
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 function doPost(e) {
