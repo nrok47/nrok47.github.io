@@ -27,7 +27,7 @@
   </div>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec'; // Replace with your actual Google Apps Script web app URL
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxI_onG1cy47WNP4j3_HrmSGyBwL9XGFwZBTZtZtnQTaI6y0N6sPL_9hP_XrCd76BI/exec'; // Use your actual web app URL here
 
     async function fetchData() {
       try {
@@ -103,14 +103,26 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ orderId, paidAmount: totalAmount, paymentMethod: method })
             });
-            const result = await response.json();
-            if (result.success) {
-              alert('Payment successful!');
-              fetchData();
+            let result;
+            if (response.ok) {
+              try {
+                result = await response.json();
+              } catch (jsonErr) {
+                alert('Payment failed: Invalid JSON response');
+                return;
+              }
+              if (result.success) {
+                alert('Payment successful!');
+                fetchData();
+              } else {
+                alert('Payment failed: ' + (result.message || 'Unknown error'));
+              }
             } else {
-              alert('Payment failed: ' + result.message);
+              const text = await response.text();
+              alert('Payment failed: ' + response.status + ' ' + text);
             }
           } catch (error) {
+            alert('Payment failed: ' + error.message);
             console.error('Error processing payment:', error);
           }
         });

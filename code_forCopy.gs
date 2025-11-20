@@ -3,15 +3,26 @@
 // Web App: Deploy as 'Anyone, even anonymous'
 
 function doGet(e) {
-  const type = (e && e.parameter && e.parameter.type) ? String(e.parameter.type).toLowerCase() : '';
-  if (type === 'getseller') {
-    return ContentService.createTextOutput(JSON.stringify(getSeller_())).setMimeType(ContentService.MimeType.JSON);
+  if (e && e.parameter && e.parameter._cors) {
+    return ContentService.createTextOutput('')
+      .setMimeType(ContentService.MimeType.JSON);
   }
-  // default: getOrders
-  return ContentService.createTextOutput(JSON.stringify(getOrders_())).setMimeType(ContentService.MimeType.JSON);
+  const type = (e && e.parameter && e.parameter.type) ? String(e.parameter.type).toLowerCase() : '';
+  let response;
+  if (type === 'getseller') {
+    response = JSON.stringify(getSeller_());
+  } else {
+    response = JSON.stringify(getOrders_());
+  }
+  return ContentService.createTextOutput(response)
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
+  if (e && e.parameter && e.parameter._cors) {
+    return ContentService.createTextOutput('')
+      .setMimeType(ContentService.MimeType.JSON);
+  }
   try {
     let payload = {};
     const contentType = (e.postData && (e.postData.type || e.postData.contentType || ''));
@@ -31,22 +42,36 @@ function doPost(e) {
       payload = e.parameter || {};
     }
 
+    let result;
     // อัปเดต stock
     if (payload.type === 'updateStock' && payload.stock) {
-      return updateStock_(payload.stock);
+      result = updateStock_(payload.stock);
     }
     // สร้าง order
-    if (payload.customerName && payload.orders) {
-      return createOrder_(payload);
+    else if (payload.customerName && payload.orders) {
+      result = createOrder_(payload);
     }
     // เก็บเงิน
-    if (payload.orderId && payload.paidAmount && payload.paymentMethod) {
-      return updatePayment_(payload);
+    else if (payload.orderId && payload.paidAmount && payload.paymentMethod) {
+      result = updatePayment_(payload);
+    } else {
+      result = { success: false, message: 'Unknown request' };
     }
-    return ContentService.createTextOutput(JSON.stringify({ success: false, message: 'Unknown request' })).setMimeType(ContentService.MimeType.JSON);
+
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, message: err.message })).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, message: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+// Helper function for CORS
+function createCorsResponse(json) {
+  var output = HtmlService.createHtmlOutput(json);
+  output.setMimeType(ContentService.MimeType.JSON);
+  output.addMetaTag('Access-Control-Allow-Origin', '*');
+  return output;
 }
 
 function getSeller_() {
