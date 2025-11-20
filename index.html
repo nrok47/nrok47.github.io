@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>รายงานสั่งซื้อ</title>
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+  <div id="site-menu"></div>
+  <script src="scripts/load-menu.js" defer></script>
+  <div class="container">
+    <h1>📋 รายงานสั่งซื้อ</h1>
+    <table id="data-table">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer Name</th>
+          <th>Total Amount</th>
+          <th>Paid</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Data will be dynamically inserted here -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const SCRIPT_URL = 'YOUR_DEPLOYED_WEB_APP_URL'; // Replace with your actual Google Apps Script web app URL
+
+    async function fetchData() {
+      try {
+        const response = await fetch(SCRIPT_URL);
+        const data = await response.json();
+        populateTable(data);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    }
+
+    function populateTable(data) {
+      const tableBody = document.querySelector('#data-table tbody');
+      tableBody.innerHTML = '';
+      data.forEach(order => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${order.orderId}</td>
+          <td>${order.customerName}</td>
+          <td>${order.totalAmount}</td>
+          <td>${order.paid ? 'Yes' : 'No'}</td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    fetchData();
+  </script>
+</body>
+</html>

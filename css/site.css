@@ -32,3 +32,17 @@
 .input--wide-60 { width: 60%; }
 .input--padded { padding: 6px; }
 
+/* Table styles for index.html */
+#data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+#data-table th, #data-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+#data-table th {
+  background-color: #f4f4f4;
+  text-align: left;
+}
+
